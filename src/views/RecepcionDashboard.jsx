@@ -1,0 +1,92 @@
+import { useState } from 'react';
+
+export default function RecepcionDashboard({ user, setUser }) {
+  const [reqCertificado, setReqCertificado] = useState(false);
+
+  return (
+    <div className="min-h-screen bg-gray-100 flex flex-col">
+      {/* Topbar */}
+      <header className="bg-[#1b75bb] text-white p-4 flex justify-between items-center">
+        <h1 className="font-bold text-lg">Módulo de Recepción - Control de Turnos</h1>
+        <div className="flex items-center space-x-4 text-sm">
+          <span>{user.nombreCompleto}</span>
+          <button 
+            onClick={() => setUser(null)}
+            className="bg-red-500 px-3 py-1 rounded text-xs hover:bg-red-600"
+          >
+            Salir
+          </button>
+        </div>
+      </header>
+
+      {/* Contenido Principal */}
+      <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Formulario Rápido de Ingreso */}
+        <div className="bg-white p-6 rounded-lg shadow border">
+          <h2 className="text-lg font-bold mb-4 text-gray-800 border-b pb-2">Registrar Turno</h2>
+          
+          <form className="space-y-4">
+            <div>
+              <label className="block text-sm font-semibold mb-1">Documento del Paciente</label>
+              <input type="number" className="w-full border rounded p-2 text-sm" placeholder="Número de documento" />
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold mb-1">Nombre Completo</label>
+              <input type="text" className="w-full border rounded p-2 text-sm" placeholder="Nombre completo" />
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold mb-1">Tipo de Servicio</label>
+              <select className="w-full border rounded p-2 text-sm">
+                <option value="CONSULTA_GENERAL">Consulta General</option>
+                <option value="CERT_MAYOR">Certificado Médico Mayor</option>
+                <option value="CERT_MENOR">Certificado Médico Menor</option>
+                <option value="HUELLA">Certificado de Huella</option>
+                <option value="CTO_DLLO">Crecimiento y Desarrollo</option>
+              </select>
+            </div>
+
+            {/* Checkbox Certificado de Asistencia */}
+            <div className="pt-2 border-t">
+              <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700">
+                <input 
+                  type="checkbox" 
+                  checked={reqCertificado}
+                  onChange={(e) => setReqCertificado(e.target.checked)}
+                  className="rounded text-blue-600 h-4 w-4"
+                />
+                <span>¿Requiere Certificado de Asistencia?</span>
+              </label>
+            </div>
+
+            {/* Campos condicionales del acompañante */}
+            {reqCertificado && (
+              <div className="bg-blue-50 p-4 rounded border border-blue-200 space-y-3">
+                <p className="text-xs font-bold text-blue-800">Datos Opcionales del Acompañante</p>
+                <div>
+                  <label className="block text-xs font-medium mb-1">Nombre del Acompañante</label>
+                  <input type="text" className="w-full border rounded p-2 text-sm bg-white" placeholder="Nombre opcional" />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium mb-1">Documento del Acompañante</label>
+                  <input type="number" className="w-full border rounded p-2 text-sm bg-white" placeholder="Documento opcional" />
+                </div>
+              </div>
+            )}
+
+            <button type="button" className="w-full bg-[#00adee] text-white py-2 rounded font-bold hover:bg-blue-500 transition">
+              Asignar Turno
+            </button>
+          </form>
+        </div>
+
+        {/* Tabla de Control de Sala de Espera */}
+        <div className="bg-white p-6 rounded-lg shadow border">
+          <h2 className="text-lg font-bold mb-4 text-gray-800 border-b pb-2">Estado de Sala de Espera</h2>
+          <p className="text-sm text-gray-500">[ Matriz / Tabla con el estado de los turnos en tiempo real ]</p>
+        </div>
+      </div>
+    </div>
+  );
+}
