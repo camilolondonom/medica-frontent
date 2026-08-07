@@ -1,13 +1,16 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useState } from 'react';
-import Login from './pages/Login';
-import RecepcionDashboard from './pages/RecepcionDashboard';
-import MedicaDashboard from './pages/MedicaDashboard';
-import SalaEsperaTV from './pages/SalaEsperaTV';
+
+// Cambiamos './pages/' por './views/'
+import Login from './views/Login';
+import RecepcionDashboard from './views/RecepcionDashboard';
+import MedicaDashboard from './views/MedicaDashboard';
+// Si aún no has creado SalaEsperaTV.jsx dentro de views, puedes dejar la línea comentada por ahora:
+// import SalaEsperaTV from './views/SalaEsperaTV';
 
 function App() {
   const [user, setUser] = useState(() => {
-    const saved = localStorage.getItem('user');
+    const saved = localStorage.getItem('usuario');
     return saved ? JSON.parse(saved) : null;
   });
 
@@ -16,9 +19,6 @@ function App() {
       <Routes>
         <Route path="/login" element={<Login setUser={setUser} />} />
         
-        {/* Vista Pública de la TV */}
-        <Route path="/sala-espera" element={<SalaEsperaTV />} />
-
         {/* Ruta Protegida - Recepción */}
         <Route 
           path="/recepcion" 
