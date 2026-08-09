@@ -1,12 +1,10 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useState } from 'react';
 
-// Cambiamos './pages/' por './views/'
 import Login from './views/Login';
 import RecepcionDashboard from './views/RecepcionDashboard';
 import MedicaDashboard from './views/MedicaDashboard';
-// Si aún no has creado SalaEsperaTV.jsx dentro de views, puedes dejar la línea comentada por ahora:
-// import SalaEsperaTV from './views/SalaEsperaTV';
+import SalaEsperaTV from './views/SalaEsperaTV';
 
 function App() {
   const [user, setUser] = useState(() => {
@@ -18,6 +16,7 @@ function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<Login setUser={setUser} />} />
+        <Route path="/sala-espera" element={<SalaEsperaTV />} />
         
         {/* Ruta Protegida - Recepción */}
         <Route 
