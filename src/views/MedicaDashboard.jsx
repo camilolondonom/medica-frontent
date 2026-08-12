@@ -1,7 +1,82 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import SockJS from 'sockjs-client/dist/sockjs';
+import { Client } from '@stomp/stompjs';
 
 export default function MedicaDashboard({ user, setUser }) {
   const [seccionActiva, setSeccionActiva] = useState('consulta');
+  const [conectado, setConectado] = useState(false);
+  const stompClientRef = useRef(null);
+
+  // Paciente simulado en atención/espera
+  const [pacienteActivo] = useState({
+    nombre: 'Juan Pérez',
+    documento: '12345678',
+  });
+
+  useEffect(() => {
+    // Configuración y activación del cliente WebSocket
+    const client = new Client({
+      webSocketFactory: () => new SockJS('http://localhost:8080/ws-turnos'),
+      reconnectDelay: 5000,
+      debug: (str) => {
+        console.log('[STOMP Debug]:', str);
+      },
+      onConnect: () => {
+        console.log('✅ Médico conectado exitosamente a WebSockets');
+        setConectado(true);
+      },
+      onDisconnect: () => {
+        console.log('❌ Conexión WebSocket desconectada');
+        setConectado(false);
+      },
+      onStompError: (frame) => {
+        console.error('Error de STOMP en Médica:', frame);
+      },
+    });
+
+    client.activate();
+    stompClientRef.current = client;
+
+    return () => {
+      if (stompClientRef.current) {
+        stompClientRef.current.deactivate();
+      }
+    };
+  }, []);
+
+  const handleLlamarSiguiente = () => {
+    console.log('Botón "Llamar Siguiente" presionado');
+
+    if (!stompClientRef.current) {
+      alert('Error: El cliente WebSocket no se ha creado.');
+      return;
+    }
+
+    if (!stompClientRef.current.connected) {
+      alert('⚠️ El WebSocket no está conectado con Spring Boot. Revisa si el backend está corriendo en http://localhost:8080');
+      return;
+    }
+
+    const payload = {
+      paciente: pacienteActivo.nombre,
+      consultorio: 'Consultorio 1',
+      medico: user?.nombreCompleto || 'Dra. Médica',
+      fechaHora: new Date().toISOString(),
+    };
+
+    try {
+      stompClientRef.current.publish({
+        destination: '/app/llamar-turno',
+        body: JSON.stringify(payload),
+      });
+
+      console.log('📢 Evento de llamado enviado al TV:', payload);
+      alert(`¡Llamado enviado al TV para el paciente ${pacienteActivo.nombre}!`);
+    } catch (error) {
+      console.error('Error al publicar el turno:', error);
+      alert('Ocurrió un error al intentar enviar el turno.');
+    }
+  };
 
   const handleLogout = () => {
     localStorage.removeItem('user');
@@ -62,8 +137,12 @@ export default function MedicaDashboard({ user, setUser }) {
 
         {/* Footer del Sidebar */}
         <div className="p-4 border-t border-blue-400">
-          <p className="text-sm font-semibold truncate">{user.nombreCompleto}</p>
-          <p className="text-xs text-blue-200 uppercase">{user.rol}</p>
+          <p className="text-sm font-semibold truncate">{user?.nombreCompleto}</p>
+          <p className="text-xs text-blue-200 uppercase">{user?.rol}</p>
+          <div className="mt-2 flex items-center space-x-2">
+            <span className={`h-2.5 w-2.5 rounded-full ${conectado ? 'bg-green-400' : 'bg-red-500'}`}></span>
+            <span className="text-xs text-blue-100">{conectado ? 'WS Conectado' : 'WS Desconectado'}</span>
+          </div>
           <button
             onClick={handleLogout}
             className="mt-3 w-full bg-red-500 hover:bg-red-600 text-white text-xs py-2 rounded transition"
@@ -73,24 +152,36 @@ export default function MedicaDashboard({ user, setUser }) {
         </div>
       </aside>
 
-      {/* Area Principal */}
+      {/* Área Principal */}
       <main className="flex-1 flex flex-col overflow-hidden">
         {/* Topbar de Gestión de Turnos */}
         <header className="bg-white shadow-md p-4 flex justify-between items-center border-b">
           <div className="flex items-center space-x-4">
             <span className="text-sm font-bold text-gray-500">Paciente Activo:</span>
             <span className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-bold">
-              Juan Pérez (CC 12345678)
+              {pacienteActivo.nombre} (CC {pacienteActivo.documento})
             </span>
           </div>
           <div className="space-x-2">
-            <button className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 font-semibold text-sm">
+            <button
+              type="button"
+              onClick={handleLlamarSiguiente}
+              className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 font-semibold text-sm transition shadow active:scale-95 cursor-pointer"
+            >
               📢 Llamar Siguiente
             </button>
-            <button className="bg-yellow-500 text-white px-4 py-2 rounded hover:bg-yellow-600 font-semibold text-sm">
+            <button 
+              type="button"
+              onClick={() => alert('Marcar ausente en construcción')}
+              className="bg-yellow-500 text-white px-4 py-2 rounded hover:bg-yellow-600 font-semibold text-sm cursor-pointer"
+            >
               ⚠️ Marcar Ausente
             </button>
-            <button className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 font-semibold text-sm">
+            <button 
+              type="button"
+              onClick={() => alert('Finalizar turno en construcción')}
+              className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 font-semibold text-sm cursor-pointer"
+            >
               ✅ Finalizar Turno
             </button>
           </div>
