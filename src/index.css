@@ -1,6 +1,13 @@
 /* src/index.css */
 
-/* 1. Declaración del Manual de Estilos (Variables Globales) */
+/* 1. Directivas de Tailwind CSS (INDISPENSABLES) */
+@import "tailwindcss";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 2. Manual de Estilos Corporativos (Variables Globales) */
 :root {
   --color-primary: #00adee;      /* Celeste / Cyan */
   --color-secondary: #1b75bb;    /* Azul */
@@ -15,7 +22,7 @@
   --font-regular: 'Century Gothic', 'Century Gothic Regular', sans-serif;
 }
 
-/* 2. Estilos base para toda la aplicación */
+/* 3. Estilos base y reseteo */
 body {
   margin: 0;
   padding: 0;
@@ -25,13 +32,11 @@ body {
   color: var(--color-black);
 }
 
-/* Clases de utilidad tipográfica (opcional para asegurar compatibilidad si las fuentes no cargan) */
+/* Reglas tipográficas globales */
 h1, h2, h3 {
   font-family: var(--font-title);
-  font-weight: 900;
 }
 
 label, button {
   font-family: var(--font-bold);
-  font-weight: bold;
 }
