@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import SockJS from 'sockjs-client/dist/sockjs';
 import { Client } from '@stomp/stompjs';
 
@@ -6,6 +6,11 @@ export default function MedicaDashboard({ user, setUser }) {
   const [seccionActiva, setSeccionActiva] = useState('consulta');
   const [conectado, setConectado] = useState(false);
   const stompClientRef = useRef(null);
+
+  // Asignar el título a la pestaña del navegador
+  useEffect(() => {
+    document.title = "DraCLM Médica";
+  }, []);
 
   // Paciente simulado en atención/espera
   const [pacienteActivo] = useState({
