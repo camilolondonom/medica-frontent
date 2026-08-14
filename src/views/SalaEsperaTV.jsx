@@ -1,164 +1,205 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { Client } from '@stomp/stompjs';
+import SockJS from 'sockjs-client';
 
-const SalaEsperaTV = () => {
-  // Estado para el turno llamado actualmente
-  const [turnoActual, setTurnoActual] = useState({
-    codigo: 'A-01',
-    paciente: 'Juan Pérez',
-    consultorio: 'Consultorio 1'
-  });
+export const SalaEsperaTV = () => {
+  const playerRef = useRef(null);
+  const [isPlayerReady, setIsPlayerReady] = useState(false);
+  const [fechaHora, setFechaHora] = useState(new Date());
 
-  // Estado para la lista de próximos turnos
-  const [proximosTurnos, setProximosTurnos] = useState([
-    { id: 1, codigo: 'A-02', paciente: 'María Gómez' },
-    { id: 2, codigo: 'A-03', paciente: 'Carlos Rodríguez' },
-    { id: 3, codigo: 'A-04', paciente: 'Ana Martínez' }
-  ]);
+  // Estados de Turnos
+  const [turnoAnterior, setTurnoAnterior] = useState(null);
+  const [turnoActual, setTurnoActual] = useState(null);
+  const [turnoSiguiente, setTurnoSiguiente] = useState(null);
 
-  // ID del video o lista de YouTube (reproducción en bucle y silencio para evitar bloqueos del navegador)
-  const youtubeVideoId = "dQw4w9WgXcQ"; // Cambiar por el ID deseado o playlist
+  // LISTA DE REPRODUCCIÓN POR DEFECTO (IDs de YouTube)
+  const playlistDefault = ['dQw4w9WgXcQ', '3JZ_D3ELwOQ', 'L_LUpnjgPso'];
+
+  // Reloj
+  useEffect(() => {
+    const timer = setInterval(() => setFechaHora(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Cargar API de YouTube con Playlist
+  useEffect(() => {
+    const initPlayer = () => {
+      if (window.YT && window.YT.Player) {
+        playerRef.current = new window.YT.Player('youtube-player', {
+          playerVars: {
+            autoplay: 1,
+            controls: 0,
+            mute: 1,
+            playlist: playlistDefault.join(','), // Carga la lista
+          },
+          events: {
+            onReady: () => setIsPlayerReady(true),
+          },
+        });
+      }
+    };
+
+    if (window.YT && window.YT.Player) {
+      initPlayer();
+    } else {
+      const tag = document.createElement('script');
+      tag.src = 'https://www.youtube.com/iframe_api';
+      window.onYouTubeIframeAPIReady = initPlayer;
+      const firstScriptTag = document.getElementsByTagName('script')[0];
+      if (firstScriptTag && firstScriptTag.parentNode) {
+        firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+      } else {
+        document.head.appendChild(tag);
+      }
+    }
+  }, []);
+
+  // WebSockets
+  useEffect(() => {
+    let client;
+    try {
+      client = new Client({
+        webSocketFactory: () => new SockJS('http://localhost:8080/ws-turnos'),
+        reconnectDelay: 5000,
+        onConnect: () => {
+          client.subscribe('/topic/turnos', (message) => {
+            try {
+              const data = JSON.parse(message.body);
+              if (Array.isArray(data)) procesarTurnosPrivacidad(data);
+            } catch (e) {
+              console.error('Error parseando turnos:', e);
+            }
+          });
+
+          // Comandos de Control Remoto de TV
+          client.subscribe('/topic/tv-control', (message) => {
+            try {
+              const command = JSON.parse(message.body);
+              handleTvCommand(command);
+            } catch (e) {
+              console.error('Error enviando comando a TV:', e);
+            }
+          });
+        },
+      });
+      client.activate();
+    } catch (err) {
+      console.error('Error WebSocket TV:', err);
+    }
+    return () => { if (client) client.deactivate(); };
+  }, [isPlayerReady]);
+
+  const procesarTurnosPrivacidad = (listaPacientes) => {
+    const atendidos = listaPacientes.filter((p) => p.estado === 'ATENDIDO');
+    const actual = listaPacientes.find((p) => p.estado === 'EN_CONSULTORIO' || p.estado === 'LLAMADO');
+    let enEspera = listaPacientes.filter((p) => p.estado === 'EN_ESPERA');
+
+    enEspera.sort((a, b) => {
+      if (a.fueAusenteReactivado && !b.fueAusenteReactivado) return -1;
+      if (!a.fueAusenteReactivado && b.fueAusenteReactivado) return 1;
+      return 0;
+    });
+
+    setTurnoAnterior(atendidos.length > 0 ? atendidos[atendidos.length - 1] : null);
+    setTurnoActual(actual || null);
+    setTurnoSiguiente(enEspera.length > 0 ? enEspera[0] : null);
+  };
+
+  // CONTROL DE REPRODUCTOR DESDE RECEPCIÓN
+  const handleTvCommand = (command) => {
+    const player = playerRef.current;
+    if (!player) return;
+
+    switch (command.action) {
+      case 'PLAY':
+        if (typeof player.playVideo === 'function') player.playVideo();
+        break;
+      case 'PAUSE':
+        if (typeof player.pauseVideo === 'function') player.pauseVideo();
+        break;
+      case 'NEXT':
+        if (typeof player.nextVideo === 'function') player.nextVideo();
+        break;
+      case 'PREV':
+        if (typeof player.previousVideo === 'function') player.previousVideo();
+        break;
+      case 'LOAD_VIDEO':
+        if (command.videoId && typeof player.loadVideoById === 'function') {
+          player.loadVideoById(command.videoId);
+        }
+        break;
+      case 'LOAD_PLAYLIST':
+        if (command.playlistId && typeof player.loadPlaylist === 'function') {
+          player.loadPlaylist({ list: command.playlistId, listType: 'playlist' });
+        }
+        break;
+      case 'MUTE_TOGGLE':
+        if (typeof player.isMuted === 'function') {
+          player.isMuted() ? player.unMute() : player.mute();
+        }
+        break;
+      default:
+        break;
+    }
+  };
+
+  const horaFormateada = fechaHora.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  const fechaFormateada = fechaHora.toLocaleDateString('es-CO', { weekday: 'long', day: 'numeric', month: 'long' });
 
   return (
-    <div style={styles.container}>
-      {/* SECCIÓN IZQUIERDA: Reproductor de YouTube */}
-      <div style={styles.videoSection}>
-        <iframe
-          style={styles.iframe}
-          src={`https://www.youtube.com/embed/${youtubeVideoId}?autoplay=1&mute=1&loop=1&playlist=${youtubeVideoId}`}
-          title="Video Sala de Espera"
-          frameBorder="0"
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-          allowFullScreen
-        ></iframe>
+    <div className="grid grid-cols-3 h-screen bg-slate-900 text-white overflow-hidden font-sans">
+      <div className="col-span-2 h-full relative bg-black">
+        <div id="youtube-player" className="w-full h-full pointer-events-none" />
       </div>
 
-      {/* SECCIÓN DERECHA: Control de Turnos */}
-      <div style={styles.turnosSection}>
-        {/* Cabecera / Turno Actual */}
-        <div style={styles.turnoActualCard}>
-          <h2 style={styles.labelLlamando}>TURNO ACTUAL</h2>
-          <div style={styles.codigoBig}>{turnoActual.codigo}</div>
-          <div style={styles.pacienteNombre}>{turnoActual.paciente}</div>
-          <div style={styles.consultorioBadge}>{turnoActual.consultorio}</div>
+      <div className="col-span-1 p-6 bg-slate-800 flex flex-col justify-between border-l border-slate-700 shadow-2xl">
+        <div>
+          <div className="border-b border-slate-700 pb-3 mb-4 text-center">
+            <h2 className="text-xl font-black tracking-wide text-blue-400 uppercase">Sala de Espera</h2>
+            <div className="mt-2 bg-slate-900/80 rounded-xl p-2 border border-slate-700 flex justify-around items-center">
+              <span className="text-xs text-slate-300 capitalize font-medium">📅 {fechaFormateada}</span>
+              <span className="text-sm font-mono font-bold text-amber-400 bg-slate-800 px-2.5 py-0.5 rounded border border-slate-700">⏰ {horaFormateada}</span>
+            </div>
+          </div>
+
+          <div className="mb-3 p-2.5 bg-slate-700/60 rounded-lg border border-slate-600/50 flex justify-between items-center opacity-75">
+            <div>
+              <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block">✓ Atendido Anteriormente</span>
+              <span className="text-xs font-semibold text-slate-200">{turnoAnterior ? turnoAnterior.nombre || turnoAnterior.paciente : '---'}</span>
+            </div>
+            <span className="text-[10px] font-mono bg-slate-800 text-slate-400 px-2 py-0.5 rounded border border-slate-700">
+              {turnoAnterior ? turnoAnterior.documento || 'Atendido' : '---'}
+            </span>
+          </div>
+
+          <div className="mb-4 p-4 bg-gradient-to-br from-blue-600 to-blue-700 rounded-2xl text-center shadow-xl border border-blue-400/30 animate-pulse">
+            <span className="text-[11px] uppercase tracking-widest font-black text-blue-200 block">📢 Paciente en Llamado / Consulta</span>
+            <div className="text-2xl font-black text-white mt-1.5 truncate">{turnoActual ? turnoActual.nombre || turnoActual.paciente : 'En Espera'}</div>
+            <div className="text-xs mt-1 text-blue-100 font-mono font-bold">{turnoActual ? `Doc: ${turnoActual.documento}` : 'Esperando próximo llamado'}</div>
+          </div>
+
+          <div className="p-3.5 bg-slate-700/90 rounded-xl border border-slate-600 mb-3">
+            <span className="text-[11px] uppercase tracking-wider font-bold text-amber-400 block mb-1.5">⏳ Siguiente en Lista</span>
+            {turnoSiguiente ? (
+              <div className="flex justify-between items-center bg-slate-800 p-2.5 rounded-lg border border-slate-700">
+                <span className="font-bold text-sm text-white truncate">{turnoSiguiente.nombre || turnoSiguiente.paciente}</span>
+                <span className="text-[10px] font-mono bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-full font-bold">En espera</span>
+              </div>
+            ) : (
+              <p className="text-xs text-slate-400 italic text-center py-1">Sin pacientes pendientes en cola</p>
+            )}
+          </div>
         </div>
 
-        {/* Lista de Turnos Siguientes */}
-        <div style={styles.siguientesContainer}>
-          <h3 style={styles.subtitulo}>Siguientes en Espera</h3>
-          <div style={styles.listaTurnos}>
-            {proximosTurnos.map((t) => (
-              <div key={t.id} style={styles.turnoRow}>
-                <span style={styles.codigoSmall}>{t.codigo}</span>
-                <span style={styles.pacienteSmall}>{t.paciente}</span>
-              </div>
-            ))}
-          </div>
+        <div className="text-center border-t border-slate-700/80 pt-2.5">
+          <p className="text-xs font-bold text-slate-200">Consultorio Médico Dra. Carolina Londoño</p>
+          <p className="text-[11px] text-emerald-400 font-mono mt-0.5 font-semibold flex items-center justify-center gap-1">
+            <span>💬 WhatsApp:</span><span>3147262285</span>
+          </p>
         </div>
       </div>
     </div>
   );
-};
-
-const styles = {
-  container: {
-    display: 'flex',
-    height: '100vh',
-    width: '100vw',
-    backgroundColor: '#0f172a',
-    color: '#ffffff',
-    fontFamily: 'Segoe UI, Tahoma, Geneva, Verdana, sans-serif',
-    overflow: 'hidden'
-  },
-  videoSection: {
-    flex: '2',
-    height: '100%',
-    backgroundColor: '#000000'
-  },
-  iframe: {
-    width: '100%',
-    height: '100%',
-    border: 'none'
-  },
-  turnosSection: {
-    flex: '1',
-    display: 'flex',
-    flexDirection: 'column',
-    padding: '24px',
-    backgroundColor: '#1e293b',
-    borderLeft: '4px solid #00adee',
-    justifyContent: 'space-between'
-  },
-  turnoActualCard: {
-    backgroundColor: '#0f172a',
-    borderRadius: '16px',
-    padding: '24px',
-    textAlign: 'center',
-    border: '2px solid #00adee',
-    boxShadow: '0 0 20px rgba(0, 173, 238, 0.3)'
-  },
-  labelLlamando: {
-    margin: 0,
-    fontSize: '20px',
-    color: '#00adee',
-    letterSpacing: '2px',
-    fontWeight: 'bold'
-  },
-  codigoBig: {
-    fontSize: '72px',
-    fontWeight: '900',
-    color: '#ffffff',
-    margin: '10px 0'
-  },
-  pacienteNombre: {
-    fontSize: '24px',
-    color: '#e2e8f0',
-    fontWeight: '600'
-  },
-  consultorioBadge: {
-    marginTop: '16px',
-    display: 'inline-block',
-    backgroundColor: '#1b75bb',
-    padding: '8px 20px',
-    borderRadius: '20px',
-    fontSize: '18px',
-    fontWeight: 'bold'
-  },
-  siguientesContainer: {
-    marginTop: '20px',
-    flex: 1,
-    display: 'flex',
-    flexDirection: 'column'
-  },
-  subtitulo: {
-    fontSize: '18px',
-    color: '#94a3b8',
-    marginBottom: '12px',
-    borderBottom: '1px solid #334155',
-    paddingBottom: '8px'
-  },
-  listaTurnos: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '10px',
-    overflowY: 'auto'
-  },
-  turnoRow: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: '#334155',
-    padding: '12px 16px',
-    borderRadius: '8px'
-  },
-  codigoSmall: {
-    fontSize: '20px',
-    fontWeight: 'bold',
-    color: '#00adee'
-  },
-  pacienteSmall: {
-    fontSize: '16px',
-    color: '#f8fafc'
-  }
 };
 
 export default SalaEsperaTV;

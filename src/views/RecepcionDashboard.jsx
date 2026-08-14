@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import SockJS from "sockjs-client/dist/sockjs";
 import { Client } from "@stomp/stompjs";
 
-export default function RecepcionDashboard({ user, setUser }) {
+export function RecepcionDashboard({ user, setUser }) {
   const [seccionActiva, setSeccionActiva] = useState("admision");
   const [conectado, setConectado] = useState(false);
   const stompClientRef = useRef(null);
@@ -11,6 +11,12 @@ export default function RecepcionDashboard({ user, setUser }) {
   const [urlRentarhosting, setUrlRentarhosting] = useState(
     "https://historycl.com/566414569/usuarios/login",
   );
+
+  // Control de Video de YouTube para la Sala de Espera
+  const [urlYoutubeInput, setUrlYoutubeInput] = useState(
+    "https://www.youtube.com/watch?v=jfKfPfyJRdk",
+  );
+  const [videoYoutubeId, setVideoYoutubeId] = useState("jfKfPfyJRdk");
 
   const servicios = [
     "Consulta Médica General",
@@ -59,7 +65,6 @@ export default function RecepcionDashboard({ user, setUser }) {
 
   // Título de la Pestaña y Favicon
   useEffect(() => {
-    // Título exacto de la pestaña de Recepción
     document.title = "Dra CLM Recepción";
 
     let link = document.querySelector("link[rel*='icon']");
@@ -68,12 +73,9 @@ export default function RecepcionDashboard({ user, setUser }) {
       link.rel = "shortcut icon";
       document.getElementsByTagName("head")[0].appendChild(link);
     }
-    // Icono SVG médico para el favicon
-    link.href =
-      'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%231b75bb"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-2 10h-4v4h-2v-4H7v-2h4V7h2v4h4v2z"/></svg>';
+    link.href = "/favicon.png";
   }, []);
 
-  // Notificación cuando Médica llama a paciente
   // Conexión única a WebSocket y Suscripción a Canales
   useEffect(() => {
     const client = new Client({
@@ -111,6 +113,31 @@ export default function RecepcionDashboard({ user, setUser }) {
       }
     };
   }, []);
+
+  // Extraer el ID de un enlace de YouTube
+  const extraerYoutubeId = (url) => {
+    if (!url) return "jfKfPfyJRdk";
+    if (url.includes("v=")) {
+      return url.split("v=")[1]?.split("&")[0];
+    } else if (url.includes("youtu.be/")) {
+      return url.split("youtu.be/")[1]?.split("?")[0];
+    }
+    return url; // Retorna directo si ya se ingresó solo el ID
+  };
+
+  const handleCambiarVideo = (e) => {
+    e.preventDefault();
+    const id = extraerYoutubeId(urlYoutubeInput);
+    setVideoYoutubeId(id);
+
+    if (stompClientRef.current && stompClientRef.current.connected) {
+      stompClientRef.current.publish({
+        destination: "/app/cambiar-video-tv",
+        body: JSON.stringify({ videoId: id, url: urlYoutubeInput }),
+      });
+    }
+    alert("📺 Se ha cambiado el video de la Sala de Espera.");
+  };
 
   const handleRegistrarTurno = (e) => {
     e.preventDefault();
@@ -580,16 +607,67 @@ export default function RecepcionDashboard({ user, setUser }) {
         {seccionActiva === "control-tv" && (
           <div className="flex-1 p-4 overflow-y-auto space-y-4">
             <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
-              <h2 className="text-sm font-bold text-[#1b75bb] mb-2">
-                📺 Monitoreo y Transmisión de Televisor
-              </h2>
-              <div className="flex items-center space-x-3 bg-gray-50 p-2.5 rounded-lg border border-gray-200">
-                <span className="text-xs font-semibold text-gray-600">
-                  Estado de Pantalla:
-                </span>
-                <span className="bg-green-100 text-green-800 text-[10px] px-2.5 py-0.5 rounded-full font-bold">
-                  ● Transmitiendo en Vivo
-                </span>
+              <div className="flex justify-between items-center mb-3">
+                <h2 className="text-sm font-bold text-[#1b75bb]">
+                  📺 Monitoreo y Transmisión de Televisor
+                </h2>
+                <div className="flex items-center space-x-2 bg-gray-50 px-3 py-1 rounded-lg border border-gray-200">
+                  <span className="text-xs font-semibold text-gray-600">
+                    Estado de Pantalla:
+                  </span>
+                  <span className="bg-green-100 text-green-800 text-[10px] px-2.5 py-0.5 rounded-full font-bold">
+                    ● Transmitiendo en Vivo
+                  </span>
+                </div>
+              </div>
+
+              {/* Formulario y Previsualizador de YouTube */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2 bg-gray-50 p-3 rounded-xl border border-gray-200">
+                {/* Formulario para cambiar video */}
+                <div className="flex flex-col justify-between">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
+                      ▶️ Cambiar Video en Sala de Espera
+                    </label>
+                    <p className="text-[11px] text-gray-500 mb-2">
+                      Pega aquí el enlace o ID del video de YouTube que deseas mostrar en el TV.
+                    </p>
+                    <form onSubmit={handleCambiarVideo} className="space-y-2">
+                      <input
+                        type="text"
+                        value={urlYoutubeInput}
+                        onChange={(e) => setUrlYoutubeInput(e.target.value)}
+                        placeholder="Ej: https://www.youtube.com/watch?v=..."
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-[#00adee] focus:border-transparent outline-none bg-white"
+                      />
+                      <button
+                        type="submit"
+                        className="w-full bg-[#00adee] hover:bg-blue-500 text-white font-bold py-2 px-3 rounded-lg text-xs uppercase tracking-wider transition shadow-sm"
+                      >
+                        🚀 Transmitir Nuevo Video al TV
+                      </button>
+                    </form>
+                  </div>
+                  <div className="mt-3 text-[10px] text-gray-400 border-t pt-2">
+                    * Al presionar transmitir, se actualizará en tiempo real la pantalla de la sala de espera mediante WebSocket.
+                  </div>
+                </div>
+
+                {/* Visor de lo que se transmite */}
+                <div className="flex flex-col">
+                  <span className="text-[11px] font-bold text-gray-600 mb-1 flex items-center gap-1">
+                    🔴 Transmisión Actual en TV:
+                  </span>
+                  <div className="w-full h-44 bg-black rounded-lg overflow-hidden shadow border border-gray-300">
+                    <iframe
+                      src={`https://www.youtube.com/embed/${videoYoutubeId}?autoplay=1&mute=1&enablejsapi=1`}
+                      title="Transmisión TV Sala de Espera"
+                      className="w-full h-full border-0"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                    />
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -666,3 +744,4 @@ export default function RecepcionDashboard({ user, setUser }) {
     </div>
   );
 }
+export default RecepcionDashboard;
