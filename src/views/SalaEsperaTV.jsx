@@ -2,6 +2,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 
+const API_BASE_URL = 'http://localhost:8080/api/atenciones';
+
 export const SalaEsperaTV = () => {
   const playerRef = useRef(null);
   const [isPlayerReady, setIsPlayerReady] = useState(false);
@@ -54,6 +56,21 @@ export const SalaEsperaTV = () => {
     }
   }, []);
 
+  // Carga inicial de la fila del día (por si el TV se abre con pacientes ya registrados)
+  useEffect(() => {
+    const cargarEstadoInicial = async () => {
+      try {
+        const res = await fetch(API_BASE_URL);
+        if (!res.ok) throw new Error('No se pudo cargar la fila del día.');
+        const data = await res.json();
+        procesarTurnosPrivacidad(data);
+      } catch (err) {
+        console.error('Error cargando estado inicial de la TV:', err);
+      }
+    };
+    cargarEstadoInicial();
+  }, []);
+
   // WebSockets
   useEffect(() => {
     let client;
@@ -72,6 +89,9 @@ export const SalaEsperaTV = () => {
           });
 
           // Comandos de Control Remoto de TV
+          // NOTA: el backend todavía no publica en este canal (pendiente,
+          // ver "Control de TV" en el roadmap) — se deja preparado para cuando
+          // se implemente /app/cambiar-video-tv en el backend.
           client.subscribe('/topic/tv-control', (message) => {
             try {
               const command = JSON.parse(message.body);
@@ -89,20 +109,26 @@ export const SalaEsperaTV = () => {
     return () => { if (client) client.deactivate(); };
   }, [isPlayerReady]);
 
+  // Determina qué mostrar en las 3 tarjetas, respetando el orden real de
+  // llegada (el backend ya entrega la lista ordenada por hora_llegada).
   const procesarTurnosPrivacidad = (listaPacientes) => {
-    const atendidos = listaPacientes.filter((p) => p.estado === 'ATENDIDO');
-    const actual = listaPacientes.find((p) => p.estado === 'EN_CONSULTORIO' || p.estado === 'LLAMADO');
-    let enEspera = listaPacientes.filter((p) => p.estado === 'EN_ESPERA');
+    const atendidosHoy = listaPacientes.filter((p) => p.estadoTurno === 'ATENDIDO');
 
-    enEspera.sort((a, b) => {
-      if (a.fueAusenteReactivado && !b.fueAusenteReactivado) return -1;
-      if (!a.fueAusenteReactivado && b.fueAusenteReactivado) return 1;
-      return 0;
-    });
+    // "Actual" cubre tanto Llamado (esperando que entre) como Consulta (ya confirmado)
+    const actual = listaPacientes.find(
+      (p) => p.estadoTurno === 'LLAMADO' || p.estadoTurno === 'CONSULTA',
+    );
 
-    setTurnoAnterior(atendidos.length > 0 ? atendidos[atendidos.length - 1] : null);
+    // "Siguiente" es el próximo en el orden de llegada que aún no ha sido
+    // atendido ni está en curso — incluye a los Ausentes a propósito,
+    // para que vean su turno acercándose y se animen a anunciarse.
+    const pendientes = listaPacientes.filter(
+      (p) => p.estadoTurno === 'ESPERA' || p.estadoTurno === 'AUSENTE',
+    );
+
+    setTurnoAnterior(atendidosHoy.length > 0 ? atendidosHoy[atendidosHoy.length - 1] : null);
     setTurnoActual(actual || null);
-    setTurnoSiguiente(enEspera.length > 0 ? enEspera[0] : null);
+    setTurnoSiguiente(pendientes.length > 0 ? pendientes[0] : null);
   };
 
   // CONTROL DE REPRODUCTOR DESDE RECEPCIÓN
@@ -165,16 +191,16 @@ export const SalaEsperaTV = () => {
           <div className="mb-3 p-2.5 bg-slate-700/60 rounded-lg border border-slate-600/50 flex justify-between items-center opacity-75">
             <div>
               <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block">✓ Atendido Anteriormente</span>
-              <span className="text-xs font-semibold text-slate-200">{turnoAnterior ? turnoAnterior.nombre || turnoAnterior.paciente : '---'}</span>
+              <span className="text-xs font-semibold text-slate-200">{turnoAnterior ? turnoAnterior.nombreCompleto : '---'}</span>
             </div>
             <span className="text-[10px] font-mono bg-slate-800 text-slate-400 px-2 py-0.5 rounded border border-slate-700">
-              {turnoAnterior ? turnoAnterior.documento || 'Atendido' : '---'}
+              {turnoAnterior ? turnoAnterior.documento : '---'}
             </span>
           </div>
 
           <div className="mb-4 p-4 bg-gradient-to-br from-blue-600 to-blue-700 rounded-2xl text-center shadow-xl border border-blue-400/30 animate-pulse">
             <span className="text-[11px] uppercase tracking-widest font-black text-blue-200 block">📢 Paciente en Llamado / Consulta</span>
-            <div className="text-2xl font-black text-white mt-1.5 truncate">{turnoActual ? turnoActual.nombre || turnoActual.paciente : 'En Espera'}</div>
+            <div className="text-2xl font-black text-white mt-1.5 truncate">{turnoActual ? turnoActual.nombreCompleto : 'En Espera'}</div>
             <div className="text-xs mt-1 text-blue-100 font-mono font-bold">{turnoActual ? `Doc: ${turnoActual.documento}` : 'Esperando próximo llamado'}</div>
           </div>
 
@@ -182,11 +208,18 @@ export const SalaEsperaTV = () => {
             <span className="text-[11px] uppercase tracking-wider font-bold text-amber-400 block mb-1.5">⏳ Siguiente en Lista</span>
             {turnoSiguiente ? (
               <div className="flex justify-between items-center bg-slate-800 p-2.5 rounded-lg border border-slate-700">
-                <span className="font-bold text-sm text-white truncate">{turnoSiguiente.nombre || turnoSiguiente.paciente}</span>
-                <span className="text-[10px] font-mono bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-full font-bold">En espera</span>
+                <span className="font-bold text-sm text-white truncate">{turnoSiguiente.nombreCompleto}</span>
+                <span className="text-[10px] font-mono bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-full font-bold">
+                  {turnoSiguiente.estadoTurno === 'AUSENTE' ? 'Ausente' : 'En espera'}
+                </span>
               </div>
             ) : (
               <p className="text-xs text-slate-400 italic text-center py-1">Sin pacientes pendientes en cola</p>
+            )}
+            {turnoSiguiente && turnoSiguiente.estadoTurno === 'AUSENTE' && (
+              <p className="text-[10px] text-amber-300/90 italic text-center mt-2 leading-snug">
+                Sr(a) {turnoSiguiente.nombreCompleto.split(' ')[0]}, si se encuentra ausente, favor anunciarse en recepción.
+              </p>
             )}
           </div>
         </div>

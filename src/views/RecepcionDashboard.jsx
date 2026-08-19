@@ -2,6 +2,27 @@ import { useState, useEffect, useRef } from "react";
 import SockJS from "sockjs-client/dist/sockjs";
 import { Client } from "@stomp/stompjs";
 
+const API_BASE_URL = "http://localhost:8080/api/atenciones";
+
+const SERVICIOS_DISPONIBLES = [
+  { label: "Consulta Médica General", value: "CONSULTA_GENERAL" },
+  { label: "Certificado Mayor de Edad", value: "CERT_MAYOR" },
+  { label: "Certificado Menor de Edad", value: "CERT_MENOR" },
+  { label: "Certificado de Huella", value: "HUELLA" },
+  { label: "Crecimiento y Desarrollo", value: "CTO_DLLO" },
+];
+
+const ESTADOS_INFO = {
+  ESPERA: { label: "En Espera", clase: "bg-yellow-100 text-yellow-800" },
+  LLAMADO: { label: "Llamado", clase: "bg-purple-100 text-purple-800" },
+  CONSULTA: { label: "En Consulta", clase: "bg-blue-100 text-blue-800" },
+  ATENDIDO: { label: "Atendido", clase: "bg-green-100 text-green-800" },
+  AUSENTE: { label: "Ausente", clase: "bg-red-100 text-red-800" },
+};
+
+const obtenerLabelServicio = (value) =>
+  SERVICIOS_DISPONIBLES.find((s) => s.value === value)?.label || value;
+
 export function RecepcionDashboard({ user, setUser }) {
   const [seccionActiva, setSeccionActiva] = useState("admision");
   const [conectado, setConectado] = useState(false);
@@ -18,50 +39,17 @@ export function RecepcionDashboard({ user, setUser }) {
   );
   const [videoYoutubeId, setVideoYoutubeId] = useState("jfKfPfyJRdk");
 
-  const servicios = [
-    "Consulta Médica General",
-    "Certificado Mayor de Edad",
-    "Certificado Menor de Edad",
-    "Certificado de Huella",
-    "Crecimiento y Desarrollo",
-    "Constancia de Asistencia (Acompañante)",
-  ];
-
   const [formTurno, setFormTurno] = useState({
     nombrePaciente: "",
     documento: "",
-    servicio: servicios[0],
+    servicio: SERVICIOS_DISPONIBLES[0].value,
     requiereAcompanante: false,
     nombreAcompanante: "",
     documentoAcompanante: "",
   });
 
-  const [pacientesSala, setPacientesSala] = useState([
-    {
-      id: 1,
-      nombre: "Juan Pérez",
-      documento: "12345678",
-      servicio: "Consulta Médica General",
-      estado: "EN_ESPERA",
-      horaIngreso: "08:15 AM",
-    },
-    {
-      id: 2,
-      nombre: "María Gómez",
-      documento: "87654321",
-      servicio: "Certificado de Huella",
-      estado: "EN_ESPERA",
-      horaIngreso: "08:30 AM",
-    },
-    {
-      id: 3,
-      nombre: "Carlos Ruiz",
-      documento: "45678912",
-      servicio: "Crecimiento y Desarrollo",
-      estado: "ATENDIDO",
-      horaIngreso: "07:50 AM",
-    },
-  ]);
+  // Ya no hay datos de prueba quemados: la fila del día se carga del backend
+  const [pacientesSala, setPacientesSala] = useState([]);
 
   // Título de la Pestaña y Favicon
   useEffect(() => {
@@ -76,6 +64,22 @@ export function RecepcionDashboard({ user, setUser }) {
     link.href = "/favicon.png";
   }, []);
 
+  // Carga inicial de la fila del día desde el backend
+  const cargarPacientesDelDia = async () => {
+    try {
+      const res = await fetch(API_BASE_URL);
+      if (!res.ok) throw new Error("No se pudo cargar la fila del día.");
+      const data = await res.json();
+      setPacientesSala(data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  useEffect(() => {
+    cargarPacientesDelDia();
+  }, []);
+
   // Conexión única a WebSocket y Suscripción a Canales
   useEffect(() => {
     const client = new Client({
@@ -84,19 +88,11 @@ export function RecepcionDashboard({ user, setUser }) {
       onConnect: () => {
         setConectado(true);
 
-        // Escuchar eventos globales de turnos
+        // El backend transmite la LISTA COMPLETA del día cada vez que algo cambia
+        // (no un turno individual), así que simplemente reemplazamos el estado.
         client.subscribe("/topic/turnos", (message) => {
-          const turnoRecibido = JSON.parse(message.body);
-
-          setPacientesSala((prev) => {
-            const existe = prev.some((p) => p.id === turnoRecibido.id);
-            if (existe) {
-              return prev.map((p) =>
-                p.id === turnoRecibido.id ? turnoRecibido : p,
-              );
-            }
-            return [...prev, turnoRecibido];
-          });
+          const listaActualizada = JSON.parse(message.body);
+          setPacientesSala(listaActualizada);
         });
       },
       onDisconnect: () => {
@@ -139,60 +135,72 @@ export function RecepcionDashboard({ user, setUser }) {
     alert("📺 Se ha cambiado el video de la Sala de Espera.");
   };
 
-  const handleRegistrarTurno = (e) => {
+  const handleRegistrarTurno = async (e) => {
     e.preventDefault();
     if (!formTurno.nombrePaciente || !formTurno.documento) {
       alert("Por favor ingrese el nombre y documento del paciente.");
       return;
     }
 
-    const nuevoTurno = {
-      id: Date.now(),
-      nombre: formTurno.nombrePaciente,
-      documento: formTurno.documento,
-      servicio: formTurno.servicio,
-      estado: "EN_ESPERA",
-      horaIngreso: new Date().toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      }),
-      acompanante: formTurno.requiereAcompanante
-        ? {
-            nombre: formTurno.nombreAcompanante,
-            documento: formTurno.documentoAcompanante,
-          }
-        : null,
+    // Nota: el acompañante todavía no se envía al backend (esa tabla/lógica
+    // no existe todavía). Se deja capturado en el formulario para cuando
+    // implementemos el módulo de constancia de asistencia.
+    const payload = {
+      documento: Number(formTurno.documento),
+      nombreCompleto: formTurno.nombrePaciente,
+      tipoServicio: formTurno.servicio,
     };
 
-    setPacientesSala((prev) => [...prev, nuevoTurno]);
-
-    if (stompClientRef.current && stompClientRef.current.connected) {
-      stompClientRef.current.publish({
-        destination: "/app/nuevo-turno",
-        body: JSON.stringify(nuevoTurno),
+    try {
+      const res = await fetch(API_BASE_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
       });
-    }
 
-    setFormTurno({
-      nombrePaciente: "",
-      documento: "",
-      servicio: servicios[0],
-      requiereAcompanante: false,
-      nombreAcompanante: "",
-      documentoAcompanante: "",
-    });
+      if (!res.ok) {
+        const mensaje = await res.text();
+        alert(`No se pudo registrar el ingreso: ${mensaje}`);
+        return;
+      }
+
+      // El WebSocket ya debería traer la lista actualizada, pero
+      // refrescamos también por fetch como respaldo si el socket falla.
+      await cargarPacientesDelDia();
+
+      setFormTurno({
+        nombrePaciente: "",
+        documento: "",
+        servicio: SERVICIOS_DISPONIBLES[0].value,
+        requiereAcompanante: false,
+        nombreAcompanante: "",
+        documentoAcompanante: "",
+      });
+    } catch (err) {
+      console.error(err);
+      alert("Error de conexión al registrar el ingreso.");
+    }
   };
 
-  const handleCambiarEstado = (id, nuevoEstado) => {
-    setPacientesSala((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, estado: nuevoEstado } : p)),
-    );
-
-    if (stompClientRef.current && stompClientRef.current.connected) {
-      stompClientRef.current.publish({
-        destination: "/app/actualizar-estado-turno",
-        body: JSON.stringify({ id, nuevoEstado }),
+  // Reemplaza al viejo <select> libre de estados: ahora solo permite
+  // los 2 movimientos que le corresponden a Recepción (Espera <-> Ausente).
+  // Los demás estados (Llamado, Consulta, Atendido) los gestiona la médica.
+  const cambiarEstadoPaciente = async (idAtencion, accion) => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/${idAtencion}/${accion}`, {
+        method: "PATCH",
       });
+
+      if (!res.ok) {
+        const mensaje = await res.text();
+        alert(`No se pudo actualizar el estado: ${mensaje}`);
+        return;
+      }
+
+      await cargarPacientesDelDia();
+    } catch (err) {
+      console.error(err);
+      alert("Error de conexión al actualizar el estado.");
     }
   };
 
@@ -201,13 +209,13 @@ export function RecepcionDashboard({ user, setUser }) {
       stompClientRef.current.publish({
         destination: "/app/llamar-turno",
         body: JSON.stringify({
-          paciente: paciente.nombre,
+          paciente: paciente.nombreCompleto,
           consultorio: "Consultorio 1",
           medico: "Dra CLM Médica",
           fechaHora: new Date().toISOString(),
         }),
       });
-      alert(`📢 Se ha enviado la llamada de ${paciente.nombre} al TV.`);
+      alert(`📢 Se ha enviado la llamada de ${paciente.nombreCompleto} al TV.`);
     } else {
       alert("WebSocket no conectado con Spring Boot.");
     }
@@ -353,7 +361,7 @@ export function RecepcionDashboard({ user, setUser }) {
                         onChange={(e) =>
                           setFormTurno({
                             ...formTurno,
-                            nombrePaciente: e.target.value,
+                            nombrePaciente: e.target.value.toUpperCase(),
                           })
                         }
                         placeholder="Nombre del paciente"
@@ -388,9 +396,9 @@ export function RecepcionDashboard({ user, setUser }) {
                       }
                       className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-xs focus:ring-2 focus:ring-[#00adee] focus:border-transparent outline-none bg-white transition"
                     >
-                      {servicios.map((s, idx) => (
-                        <option key={idx} value={s}>
-                          {s}
+                      {SERVICIOS_DISPONIBLES.map((s) => (
+                        <option key={s.value} value={s.value}>
+                          {s.label}
                         </option>
                       ))}
                     </select>
@@ -482,26 +490,26 @@ export function RecepcionDashboard({ user, setUser }) {
                     </thead>
                     <tbody className="divide-y text-gray-700">
                       {pacientesSala.map((p) => (
-                        <tr key={p.id} className="hover:bg-gray-50/80">
+                        <tr key={p.idAtencion} className="hover:bg-gray-50/80">
                           <td className="p-2 font-mono text-[11px] text-gray-500">
-                            {p.horaIngreso}
+                            {p.horaLlegada}
                           </td>
                           <td className="p-2 font-semibold text-gray-800">
-                            {p.nombre}
+                            {p.nombreCompleto}
                           </td>
                           <td className="p-2 font-mono">{p.documento}</td>
-                          <td className="p-2 text-gray-600">{p.servicio}</td>
+                          <td className="p-2 text-gray-600">
+                            {obtenerLabelServicio(p.tipoServicio)}
+                          </td>
                           <td className="p-2">
                             <span
                               className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                                p.estado === "EN_ESPERA"
-                                  ? "bg-yellow-100 text-yellow-800"
-                                  : p.estado === "AUSENTE"
-                                    ? "bg-red-100 text-red-800"
-                                    : "bg-green-100 text-green-800"
+                                ESTADOS_INFO[p.estadoTurno]?.clase ||
+                                "bg-gray-100 text-gray-700"
                               }`}
                             >
-                              {p.estado}
+                              {ESTADOS_INFO[p.estadoTurno]?.label ||
+                                p.estadoTurno}
                             </span>
                           </td>
                         </tr>
@@ -543,23 +551,23 @@ export function RecepcionDashboard({ user, setUser }) {
               <div className="flex-1 overflow-y-auto space-y-2">
                 {pacientesSala.map((p) => (
                   <div
-                    key={p.id}
+                    key={p.idAtencion}
                     className="p-2.5 border rounded-lg bg-gray-50 hover:bg-blue-50/50 transition flex flex-col gap-1.5"
                   >
                     <div className="flex justify-between items-start">
                       <div>
                         <p className="font-bold text-xs text-gray-800">
-                          {p.nombre}
+                          {p.nombreCompleto}
                         </p>
                         <p className="text-[10px] text-gray-500 font-mono">
                           CC: {p.documento}
                         </p>
                         <p className="text-[10px] text-blue-600">
-                          {p.servicio}
+                          {obtenerLabelServicio(p.tipoServicio)}
                         </p>
                       </div>
                       <span className="text-[10px] bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded font-mono">
-                        {p.horaIngreso}
+                        {p.horaLlegada}
                       </span>
                     </div>
                     <div className="flex gap-1 pt-1 border-t border-gray-200">
@@ -572,7 +580,9 @@ export function RecepcionDashboard({ user, setUser }) {
                         Copiar CC
                       </button>
                       <button
-                        onClick={() => copiarPortapapeles(p.nombre, "Nombre")}
+                        onClick={() =>
+                          copiarPortapapeles(p.nombreCompleto, "Nombre")
+                        }
                         className="flex-1 bg-gray-200 text-gray-700 hover:bg-gray-300 text-[10px] py-1 rounded font-bold"
                       >
                         Copiar Nombre
@@ -630,7 +640,8 @@ export function RecepcionDashboard({ user, setUser }) {
                       ▶️ Cambiar Video en Sala de Espera
                     </label>
                     <p className="text-[11px] text-gray-500 mb-2">
-                      Pega aquí el enlace o ID del video de YouTube que deseas mostrar en el TV.
+                      Pega aquí el enlace o ID del video de YouTube que deseas
+                      mostrar en el TV.
                     </p>
                     <form onSubmit={handleCambiarVideo} className="space-y-2">
                       <input
@@ -649,7 +660,8 @@ export function RecepcionDashboard({ user, setUser }) {
                     </form>
                   </div>
                   <div className="mt-3 text-[10px] text-gray-400 border-t pt-2">
-                    * Al presionar transmitir, se actualizará en tiempo real la pantalla de la sala de espera mediante WebSocket.
+                    * Al presionar transmitir, se actualizará en tiempo real la
+                    pantalla de la sala de espera mediante WebSocket.
                   </div>
                 </div>
 
@@ -691,40 +703,55 @@ export function RecepcionDashboard({ user, setUser }) {
                 </thead>
                 <tbody className="divide-y text-gray-700">
                   {pacientesSala.map((p) => (
-                    <tr key={p.id} className="hover:bg-gray-50">
+                    <tr key={p.idAtencion} className="hover:bg-gray-50">
                       <td className="p-2.5 font-bold text-gray-800">
-                        {p.nombre}
+                        {p.nombreCompleto}
                       </td>
                       <td className="p-2.5 font-mono">{p.documento}</td>
-                      <td className="p-2.5 text-gray-600">{p.servicio}</td>
+                      <td className="p-2.5 text-gray-600">
+                        {obtenerLabelServicio(p.tipoServicio)}
+                      </td>
                       <td className="p-2.5 text-gray-500 text-[11px] font-mono">
-                        {p.horaIngreso}
+                        {p.horaLlegada}
                       </td>
                       <td className="p-2.5">
                         <span
                           className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                            p.estado === "EN_ESPERA"
-                              ? "bg-yellow-100 text-yellow-800"
-                              : p.estado === "AUSENTE"
-                                ? "bg-red-100 text-red-800"
-                                : "bg-green-100 text-green-800"
+                            ESTADOS_INFO[p.estadoTurno]?.clase ||
+                            "bg-gray-100 text-gray-700"
                           }`}
                         >
-                          {p.estado}
+                          {ESTADOS_INFO[p.estadoTurno]?.label || p.estadoTurno}
                         </span>
                       </td>
-                      <td className="p-2.5 text-center space-x-2">
-                        <select
-                          value={p.estado}
-                          onChange={(e) =>
-                            handleCambiarEstado(p.id, e.target.value)
-                          }
-                          className="border border-gray-300 text-xs rounded px-1.5 py-0.5 bg-white outline-none"
-                        >
-                          <option value="EN_ESPERA">En Espera</option>
-                          <option value="AUSENTE">Ausente</option>
-                          <option value="ATENDIDO">Atendido</option>
-                        </select>
+                      <td className="p-2.5 text-center space-x-2 whitespace-nowrap">
+                        {p.estadoTurno === "ESPERA" && (
+                          <button
+                            onClick={() =>
+                              cambiarEstadoPaciente(p.idAtencion, "ausente")
+                            }
+                            className="bg-red-500 hover:bg-red-600 text-white text-[10px] px-2 py-1 rounded font-bold shadow-sm transition"
+                          >
+                            Marcar Ausente
+                          </button>
+                        )}
+                        {p.estadoTurno === "AUSENTE" && (
+                          <button
+                            onClick={() =>
+                              cambiarEstadoPaciente(p.idAtencion, "espera")
+                            }
+                            className="bg-yellow-500 hover:bg-yellow-600 text-white text-[10px] px-2 py-1 rounded font-bold shadow-sm transition"
+                          >
+                            Ya llegó: A Espera
+                          </button>
+                        )}
+                        {["LLAMADO", "CONSULTA", "ATENDIDO"].includes(
+                          p.estadoTurno,
+                        ) && (
+                          <span className="text-[10px] text-gray-400 italic">
+                            Gestionado en consultorio
+                          </span>
+                        )}
 
                         <button
                           onClick={() => handleLlamarTV(p)}
