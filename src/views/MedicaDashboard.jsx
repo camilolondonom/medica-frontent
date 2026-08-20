@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useRef } from "react";
 import SockJS from "sockjs-client/dist/sockjs";
 import { Client } from "@stomp/stompjs";
+import FormulaMedica from "./FormulaMedica";
+import CertificadoMedico from "./CertificadoMedico";
+import CertificadoHuella from "./CertificadoHuella";
 
 const API_BASE_URL = "http://localhost:8080/api/atenciones";
 
@@ -71,7 +74,6 @@ export default function MedicaDashboard({ user, setUser }) {
         client.subscribe("/topic/turnos", (message) => {
           const listaActualizada = JSON.parse(message.body);
           setListaDia(listaActualizada);
-          // La lista general no trae diagnósticos completos; se refresca aparte.
           cargarAtendidos();
         });
       },
@@ -93,9 +95,7 @@ export default function MedicaDashboard({ user, setUser }) {
     };
   }, []);
 
-  // Paciente esperando confirmación de ingreso (llamado, aún no ha entrado)
   const pacienteLlamado = listaDia.find((p) => p.estadoTurno === "LLAMADO");
-  // Paciente que ya está físicamente con la médica
   const pacienteEnConsulta = listaDia.find((p) => p.estadoTurno === "CONSULTA");
   const pacienteEnCurso = pacienteEnConsulta || pacienteLlamado || null;
 
@@ -123,9 +123,6 @@ export default function MedicaDashboard({ user, setUser }) {
     }
   };
 
-  // Si hay alguien en consulta, hay que cerrarlo (con DX) antes de llamar al
-  // siguiente -> se abre el modal. Si no hay nadie en consulta (primer
-  // llamado del día, o el anterior ya se cerró), se llama directo.
   const handleLlamarSiguiente = () => {
     if (pacienteEnConsulta) {
       setDxInputs(["", "", ""]);
@@ -147,7 +144,7 @@ export default function MedicaDashboard({ user, setUser }) {
         `${API_BASE_URL}/${pacienteLlamado.idAtencion}/confirmar-ingreso`,
         {
           method: "PATCH",
-        },
+        }
       );
       if (!res.ok) {
         alert(`No se pudo confirmar el ingreso: ${await res.text()}`);
@@ -160,7 +157,6 @@ export default function MedicaDashboard({ user, setUser }) {
     }
   };
 
-  // Marca ausente específicamente al paciente que fue llamado y no respondió
   const handleMarcarAusenteLlamado = async () => {
     if (!pacienteLlamado) return;
     try {
@@ -168,7 +164,7 @@ export default function MedicaDashboard({ user, setUser }) {
         `${API_BASE_URL}/${pacienteLlamado.idAtencion}/ausente`,
         {
           method: "PATCH",
-        },
+        }
       );
       if (!res.ok) {
         alert(`No se pudo marcar Ausente: ${await res.text()}`);
@@ -188,95 +184,122 @@ export default function MedicaDashboard({ user, setUser }) {
 
   return (
     <div className="flex h-screen bg-gray-100 font-sans">
-      {/* Sidebar Lateral */}
-      <aside className="w-64 bg-[#1b75bb] text-white flex flex-col justify-between shadow-lg">
+      {/* Sidebar Lateral (Estilo Rediseñado Recepción) */}
+      <aside className="w-64 bg-[#1b75bb] text-white flex flex-col justify-between shadow-xl z-10 select-none">
         <div>
-          <div className="p-4 bg-[#00adee] text-center font-bold text-lg border-b border-blue-400">
-            Consultorio Médico
+          {/* Header del Perfil / Rol */}
+          <div className="p-4 border-b border-blue-400/40 bg-blue-900/20 flex items-center space-x-3">
+            <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center font-bold text-lg text-white border border-white/30 shadow-inner">
+              🩺
+            </div>
+            <div className="overflow-hidden">
+              <h1 className="font-bold text-sm tracking-wide leading-tight truncate">
+                {user?.nombreCompleto || "Médico"}
+              </h1>
+              <p className="text-[11px] text-blue-200 uppercase tracking-wider font-semibold mt-0.5">
+                Consultorio Médico
+              </p>
+            </div>
           </div>
-          <nav className="mt-4 px-2 space-y-1">
+
+          {/* Menú de Navegación */}
+          <nav className="mt-4 px-3 space-y-1.5">
             <button
               onClick={() => setSeccionActiva("consulta")}
-              className={`w-full text-left px-4 py-3 rounded-md transition ${
+              className={`w-full flex items-center space-x-2.5 px-3.5 py-2.5 rounded-lg text-xs font-bold transition-all duration-200 ${
                 seccionActiva === "consulta"
-                  ? "bg-[#00adee] font-bold"
-                  : "hover:bg-blue-600"
+                  ? "bg-white text-[#1b75bb] shadow-md font-extrabold"
+                  : "hover:bg-blue-600/60 text-blue-100"
               }`}
             >
-              📋 Consulta Médica
+              <span className="text-sm">📋</span>
+              <span>Consulta Médica</span>
             </button>
+
             <button
               onClick={() => setSeccionActiva("atendidos")}
-              className={`w-full text-left px-4 py-3 rounded-md transition ${
+              className={`w-full flex items-center space-x-2.5 px-3.5 py-2.5 rounded-lg text-xs font-bold transition-all duration-200 ${
                 seccionActiva === "atendidos"
-                  ? "bg-[#00adee] font-bold"
-                  : "hover:bg-blue-600"
+                  ? "bg-white text-[#1b75bb] shadow-md font-extrabold"
+                  : "hover:bg-blue-600/60 text-blue-100"
               }`}
             >
-              ✅ Atendidos Hoy
+              <span className="text-sm">✅</span>
+              <span>Atendidos Hoy</span>
             </button>
+
             <button
               onClick={() => setSeccionActiva("certificados")}
-              className={`w-full text-left px-4 py-3 rounded-md transition ${
+              className={`w-full flex items-center space-x-2.5 px-3.5 py-2.5 rounded-lg text-xs font-bold transition-all duration-200 ${
                 seccionActiva === "certificados"
-                  ? "bg-[#00adee] font-bold"
-                  : "hover:bg-blue-600"
+                  ? "bg-white text-[#1b75bb] shadow-md font-extrabold"
+                  : "hover:bg-blue-600/60 text-blue-100"
               }`}
             >
-              📜 Certificados
+              <span className="text-sm">📜</span>
+              <span>Certificados</span>
             </button>
+
             <button
               onClick={() => setSeccionActiva("huella")}
-              className={`w-full text-left px-4 py-3 rounded-md transition ${
+              className={`w-full flex items-center space-x-2.5 px-3.5 py-2.5 rounded-lg text-xs font-bold transition-all duration-200 ${
                 seccionActiva === "huella"
-                  ? "bg-[#00adee] font-bold"
-                  : "hover:bg-blue-600"
+                  ? "bg-white text-[#1b75bb] shadow-md font-extrabold"
+                  : "hover:bg-blue-600/60 text-blue-100"
               }`}
             >
-              👆 Certificado de Huella
+              <span className="text-sm">👆</span>
+              <span>Certificado de Huella</span>
             </button>
+
             <button
               onClick={() => setSeccionActiva("crecimiento")}
-              className={`w-full text-left px-4 py-3 rounded-md transition ${
+              className={`w-full flex items-center space-x-2.5 px-3.5 py-2.5 rounded-lg text-xs font-bold transition-all duration-200 ${
                 seccionActiva === "crecimiento"
-                  ? "bg-[#00adee] font-bold"
-                  : "hover:bg-blue-600"
+                  ? "bg-white text-[#1b75bb] shadow-md font-extrabold"
+                  : "hover:bg-blue-600/60 text-blue-100"
               }`}
             >
-              📈 Crecimiento y Desarrollo
+              <span className="text-sm">📈</span>
+              <span>Crecimiento y Desarrollo</span>
             </button>
+
             <button
               onClick={() => setSeccionActiva("formulas")}
-              className={`w-full text-left px-4 py-3 rounded-md transition ${
+              className={`w-full flex items-center space-x-2.5 px-3.5 py-2.5 rounded-lg text-xs font-bold transition-all duration-200 ${
                 seccionActiva === "formulas"
-                  ? "bg-[#00adee] font-bold"
-                  : "hover:bg-blue-600"
+                  ? "bg-white text-[#1b75bb] shadow-md font-extrabold"
+                  : "hover:bg-blue-600/60 text-blue-100"
               }`}
             >
-              💊 Fórmulas Extraordinarias
+              <span className="text-sm">💊</span>
+              <span>Fórmulas Extraordinarias</span>
             </button>
           </nav>
         </div>
 
         {/* Footer del Sidebar */}
-        <div className="p-4 border-t border-blue-400">
-          <p className="text-sm font-semibold truncate">
-            {user?.nombreCompleto}
-          </p>
-          <p className="text-xs text-blue-200 uppercase">{user?.rol}</p>
-          <div className="mt-2 flex items-center space-x-2">
-            <span
-              className={`h-2.5 w-2.5 rounded-full ${conectado ? "bg-green-400" : "bg-red-500"}`}
-            ></span>
-            <span className="text-xs text-blue-100">
-              {conectado ? "WS Conectado" : "WS Desconectado"}
-            </span>
+        <div className="p-4 border-t border-blue-400/40 bg-blue-900/30">
+          <div className="flex items-center justify-between mb-3 px-1">
+            <div className="flex items-center space-x-2">
+              <span
+                className={`h-2.5 w-2.5 rounded-full ${
+                  conectado ? "bg-emerald-400 animate-pulse" : "bg-red-500"
+                }`}
+              ></span>
+              <span className="text-[11px] text-blue-100 font-semibold tracking-wide">
+                {conectado ? "Servidor Online" : "Desconectado"}
+              </span>
+            </div>
+            <span className="text-[10px] text-blue-200/70 font-mono">WS v1.0</span>
           </div>
+
           <button
             onClick={handleLogout}
-            className="mt-3 w-full bg-red-500 hover:bg-red-600 text-white text-xs py-2 rounded transition"
+            className="w-full bg-red-500/90 hover:bg-red-600 text-white text-xs font-bold py-2 rounded-lg transition-all duration-200 shadow hover:shadow-md flex items-center justify-center space-x-1.5"
           >
-            Cerrar Sesión
+            <span>🚪</span>
+            <span>Cerrar Sesión</span>
           </button>
         </div>
       </aside>
@@ -297,8 +320,8 @@ export default function MedicaDashboard({ user, setUser }) {
                     : "bg-blue-100 text-blue-800"
                 }`}
               >
-                {pacienteEnCurso.nombreCompleto} (CC {pacienteEnCurso.documento}
-                ) — {ESTADOS_INFO[pacienteEnCurso.estadoTurno]?.label}
+                {pacienteEnCurso.nombreCompleto} (CC {pacienteEnCurso.documento}) —{" "}
+                {ESTADOS_INFO[pacienteEnCurso.estadoTurno]?.label}
               </span>
             ) : (
               <span className="bg-gray-100 text-gray-500 px-3 py-1 rounded-full text-sm font-semibold">
@@ -341,16 +364,21 @@ export default function MedicaDashboard({ user, setUser }) {
         <div className="flex-1 p-6 overflow-y-auto">
           {seccionActiva === "consulta" && (
             <div className="flex gap-4 h-full">
-              <div className="flex-1 bg-white rounded-lg shadow border p-4 flex flex-col justify-center items-center">
+              <div className="flex-1 bg-white rounded-lg shadow border p-4 flex flex-col">
                 <h2 className="text-xl font-bold text-gray-700 mb-2">
                   Visor Rentarhosting SAS
                 </h2>
-                <p className="text-gray-500 mb-4 text-center">
-                  Aquí se cargará el marco independiente de Rentarhosting para
-                  la historia clínica.
+                <p className="text-gray-500 mb-4 text-xs">
+                  Historia clínica y consulta médica activa.
                 </p>
-                <div className="w-full h-96 border-2 border-dashed border-gray-300 flex items-center justify-center text-gray-400">
-                  [ Espacio reservado para iFrame / Visor de Rentarhosting ]
+
+                <div className="w-full flex-1 min-h-[500px] border rounded-lg overflow-hidden shadow-inner bg-gray-50">
+                  <iframe
+                    src="https://historycl.com/566414569/usuarios/login"
+                    title="Visor Rentarhosting"
+                    className="w-full h-full border-none"
+                    allow="camera; microphone; fullscreen"
+                  />
                 </div>
               </div>
 
@@ -369,8 +397,7 @@ export default function MedicaDashboard({ user, setUser }) {
                           {p.nombreCompleto}
                         </p>
                         <p className="text-[10px] text-gray-500">
-                          {TIPOS_SERVICIO_LABEL[p.tipoServicio] ||
-                            p.tipoServicio}
+                          {TIPOS_SERVICIO_LABEL[p.tipoServicio] || p.tipoServicio}
                         </p>
                       </div>
                       <span
@@ -442,22 +469,14 @@ export default function MedicaDashboard({ user, setUser }) {
           )}
 
           {seccionActiva === "certificados" && (
-            <div className="bg-white p-6 rounded-lg shadow border">
-              <h2 className="text-lg font-bold mb-4">
-                Generación de Certificados Médicos
-              </h2>
-              <p className="text-sm text-gray-600">
-                Formulario y plantilla predeterminada...
-              </p>
+            <div className="bg-white p-6 rounded-lg shadow border overflow-y-auto">
+              <CertificadoMedico pacienteActivo={pacienteEnCurso} user={user} />
             </div>
           )}
 
           {seccionActiva === "huella" && (
-            <div className="bg-white p-6 rounded-lg shadow border">
-              <h2 className="text-lg font-bold mb-4">Certificado de Huella</h2>
-              <p className="text-sm text-gray-600">
-                Formulario pendiente de construir...
-              </p>
+            <div className="bg-white p-6 rounded-lg shadow border overflow-y-auto">
+              <CertificadoHuella pacienteActivo={pacienteEnCurso} user={user} />
             </div>
           )}
 
@@ -473,19 +492,14 @@ export default function MedicaDashboard({ user, setUser }) {
           )}
 
           {seccionActiva === "formulas" && (
-            <div className="bg-white p-6 rounded-lg shadow border">
-              <h2 className="text-lg font-bold mb-4">
-                Fórmula Médica Extraoficial
-              </h2>
-              <p className="text-sm text-gray-600">
-                Formulario pendiente de construir...
-              </p>
+            <div className="bg-white p-6 rounded-lg shadow border overflow-y-auto">
+              <FormulaMedica pacienteActivo={pacienteEnCurso} user={user} />
             </div>
           )}
         </div>
       </main>
 
-      {/* Modal de Diagnósticos al cerrar la consulta actual */}
+      {/* Modal de Diagnósticos */}
       {showDxModal && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl shadow-xl p-6 w-96">

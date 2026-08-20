@@ -30,12 +30,12 @@ export function RecepcionDashboard({ user, setUser }) {
 
   // URL del sistema externo Rentarhosting
   const [urlRentarhosting, setUrlRentarhosting] = useState(
-    "https://historycl.com/566414569/usuarios/login",
+    "https://historycl.com/566414569/usuarios/login"
   );
 
   // Control de Video de YouTube para la Sala de Espera
   const [urlYoutubeInput, setUrlYoutubeInput] = useState(
-    "https://www.youtube.com/watch?v=jfKfPfyJRdk",
+    "https://www.youtube.com/watch?v=jfKfPfyJRdk"
   );
   const [videoYoutubeId, setVideoYoutubeId] = useState("jfKfPfyJRdk");
 
@@ -48,7 +48,6 @@ export function RecepcionDashboard({ user, setUser }) {
     documentoAcompanante: "",
   });
 
-  // Ya no hay datos de prueba quemados: la fila del día se carga del backend
   const [pacientesSala, setPacientesSala] = useState([]);
 
   // Título de la Pestaña y Favicon
@@ -80,16 +79,13 @@ export function RecepcionDashboard({ user, setUser }) {
     cargarPacientesDelDia();
   }, []);
 
-  // Conexión única a WebSocket y Suscripción a Canales
+  // Conexión a WebSocket
   useEffect(() => {
     const client = new Client({
       webSocketFactory: () => new SockJS("http://localhost:8080/ws-turnos"),
       reconnectDelay: 5000,
       onConnect: () => {
         setConectado(true);
-
-        // El backend transmite la LISTA COMPLETA del día cada vez que algo cambia
-        // (no un turno individual), así que simplemente reemplazamos el estado.
         client.subscribe("/topic/turnos", (message) => {
           const listaActualizada = JSON.parse(message.body);
           setPacientesSala(listaActualizada);
@@ -110,7 +106,6 @@ export function RecepcionDashboard({ user, setUser }) {
     };
   }, []);
 
-  // Extraer el ID de un enlace de YouTube
   const extraerYoutubeId = (url) => {
     if (!url) return "jfKfPfyJRdk";
     if (url.includes("v=")) {
@@ -118,7 +113,7 @@ export function RecepcionDashboard({ user, setUser }) {
     } else if (url.includes("youtu.be/")) {
       return url.split("youtu.be/")[1]?.split("?")[0];
     }
-    return url; // Retorna directo si ya se ingresó solo el ID
+    return url;
   };
 
   const handleCambiarVideo = (e) => {
@@ -142,9 +137,6 @@ export function RecepcionDashboard({ user, setUser }) {
       return;
     }
 
-    // Nota: el acompañante todavía no se envía al backend (esa tabla/lógica
-    // no existe todavía). Se deja capturado en el formulario para cuando
-    // implementemos el módulo de constancia de asistencia.
     const payload = {
       documento: Number(formTurno.documento),
       nombreCompleto: formTurno.nombrePaciente,
@@ -164,8 +156,6 @@ export function RecepcionDashboard({ user, setUser }) {
         return;
       }
 
-      // El WebSocket ya debería traer la lista actualizada, pero
-      // refrescamos también por fetch como respaldo si el socket falla.
       await cargarPacientesDelDia();
 
       setFormTurno({
@@ -182,9 +172,6 @@ export function RecepcionDashboard({ user, setUser }) {
     }
   };
 
-  // Reemplaza al viejo <select> libre de estados: ahora solo permite
-  // los 2 movimientos que le corresponden a Recepción (Espera <-> Ausente).
-  // Los demás estados (Llamado, Consulta, Atendido) los gestiona la médica.
   const cambiarEstadoPaciente = async (idAtencion, accion) => {
     try {
       const res = await fetch(`${API_BASE_URL}/${idAtencion}/${accion}`, {
@@ -233,66 +220,86 @@ export function RecepcionDashboard({ user, setUser }) {
 
   return (
     <div className="flex h-screen bg-gray-100 font-sans">
-      {/* Sidebar Recepción */}
-      <aside className="w-64 bg-[#1b75bb] text-white flex flex-col justify-between shadow-xl z-10">
+      {/* SIDEBAR REDISEÑADO (ESTILO MÉDICO) */}
+      <aside className="w-64 bg-[#1b75bb] text-white flex flex-col justify-between shadow-xl z-10 select-none">
         <div>
-          <div className="p-4 bg-[#00adee] text-center font-bold text-base border-b border-blue-400 tracking-wide uppercase">
-            Dra CLM Recepción
+          {/* Header del Perfil / Rol */}
+          <div className="p-4 border-b border-blue-400/40 bg-blue-900/20 flex items-center space-x-3">
+            <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center font-bold text-lg text-white border border-white/30 shadow-inner">
+              📋
+            </div>
+            <div className="overflow-hidden">
+              <h1 className="font-bold text-sm tracking-wide leading-tight truncate">
+                {user?.nombreCompleto || "Recepción"}
+              </h1>
+              <p className="text-[11px] text-blue-200 uppercase tracking-wider font-semibold mt-0.5">
+                Módulo Recepción
+              </p>
+            </div>
           </div>
-          <nav className="mt-4 px-2 space-y-1">
+
+          {/* Menú de Navegación */}
+          <nav className="mt-4 px-3 space-y-1.5">
             <button
               onClick={() => setSeccionActiva("admision")}
-              className={`w-full text-left px-4 py-3 rounded-lg text-xs font-bold transition-all ${
+              className={`w-full flex items-center space-x-2.5 px-3.5 py-2.5 rounded-lg text-xs font-bold transition-all duration-200 ${
                 seccionActiva === "admision"
-                  ? "bg-[#00adee] text-white shadow-md"
-                  : "hover:bg-blue-600 text-blue-100"
+                  ? "bg-white text-[#1b75bb] shadow-md font-extrabold"
+                  : "hover:bg-blue-600/60 text-blue-100"
               }`}
             >
-              📝 Admisión e Ingreso
+              <span className="text-sm">📝</span>
+              <span>Admisión e Ingreso</span>
             </button>
+
             <button
               onClick={() => setSeccionActiva("facturacion")}
-              className={`w-full text-left px-4 py-3 rounded-lg text-xs font-bold transition-all ${
+              className={`w-full flex items-center space-x-2.5 px-3.5 py-2.5 rounded-lg text-xs font-bold transition-all duration-200 ${
                 seccionActiva === "facturacion"
-                  ? "bg-[#00adee] text-white shadow-md"
-                  : "hover:bg-blue-600 text-blue-100"
+                  ? "bg-white text-[#1b75bb] shadow-md font-extrabold"
+                  : "hover:bg-blue-600/60 text-blue-100"
               }`}
             >
-              🧾 Facturación y RIPS
+              <span className="text-sm">🧾</span>
+              <span>Facturación y RIPS</span>
             </button>
+
             <button
               onClick={() => setSeccionActiva("control-tv")}
-              className={`w-full text-left px-4 py-3 rounded-lg text-xs font-bold transition-all ${
+              className={`w-full flex items-center space-x-2.5 px-3.5 py-2.5 rounded-lg text-xs font-bold transition-all duration-200 ${
                 seccionActiva === "control-tv"
-                  ? "bg-[#00adee] text-white shadow-md"
-                  : "hover:bg-blue-600 text-blue-100"
+                  ? "bg-white text-[#1b75bb] shadow-md font-extrabold"
+                  : "hover:bg-blue-600/60 text-blue-100"
               }`}
             >
-              📺 Control de TV y Sala
+              <span className="text-sm">📺</span>
+              <span>Control de TV y Sala</span>
             </button>
           </nav>
         </div>
 
-        <div className="p-4 border-t border-blue-400 bg-blue-900/20">
-          <p className="text-xs font-bold truncate">
-            {user?.nombreCompleto || "Auxiliar Administrativo"}
-          </p>
-          <p className="text-[10px] text-blue-200 uppercase tracking-wider font-semibold">
-            Recepción
-          </p>
-          <div className="mt-2 flex items-center space-x-2">
-            <span
-              className={`h-2 w-2 rounded-full ${conectado ? "bg-green-400 animate-pulse" : "bg-red-500"}`}
-            ></span>
-            <span className="text-[10px] text-blue-100 font-medium">
-              {conectado ? "WS Conectado" : "WS Desconectado"}
-            </span>
+        {/* Footer del Sidebar: Estado de Socket y Logout */}
+        <div className="p-4 border-t border-blue-400/40 bg-blue-900/30">
+          <div className="flex items-center justify-between mb-3 px-1">
+            <div className="flex items-center space-x-2">
+              <span
+                className={`h-2.5 w-2.5 rounded-full ${
+                  conectado ? "bg-emerald-400 animate-pulse" : "bg-red-500"
+                }`}
+              ></span>
+              <span className="text-[11px] text-blue-100 font-semibold tracking-wide">
+                {conectado ? "Servidor Online" : "Desconectado"}
+              </span>
+            </div>
+            <span className="text-[10px] text-blue-200/70 font-mono">WS v1.0</span>
           </div>
+
           <button
             onClick={handleLogout}
-            className="mt-3 w-full bg-red-500 hover:bg-red-600 text-white text-xs font-bold py-1.5 rounded transition shadow"
+            className="w-full bg-red-500/90 hover:bg-red-600 text-white text-xs font-bold py-2 rounded-lg transition-all duration-200 shadow hover:shadow-md flex items-center justify-center space-x-1.5"
           >
-            Cerrar Sesión
+            <span>🚪</span>
+            <span>Cerrar Sesión</span>
           </button>
         </div>
       </aside>
@@ -302,7 +309,6 @@ export function RecepcionDashboard({ user, setUser }) {
         {/* VISTA 1: ADMISIÓN E INGRESO DE PACIENTES */}
         {seccionActiva === "admision" && (
           <div className="flex-1 flex p-3 gap-3 overflow-hidden">
-            {/* Lado Izquierdo (65%): Formulario e Ingreso de Pacientes */}
             <div className="w-[65%] flex flex-col gap-3 overflow-y-auto">
               <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
                 <h2 className="text-sm font-bold text-[#1b75bb] mb-3 pb-2 border-b flex items-center justify-between">
@@ -373,7 +379,7 @@ export function RecepcionDashboard({ user, setUser }) {
                           onClick={() =>
                             copiarPortapapeles(
                               formTurno.nombrePaciente,
-                              "Nombre",
+                              "Nombre"
                             )
                           }
                           className="bg-gray-100 hover:bg-gray-200 px-2 py-1 rounded text-[10px] font-bold border text-gray-600"
@@ -404,7 +410,6 @@ export function RecepcionDashboard({ user, setUser }) {
                     </select>
                   </div>
 
-                  {/* Checkbox Acompañante */}
                   <div className="col-span-2 pt-1">
                     <label className="flex items-center space-x-2 text-xs font-semibold text-gray-700 cursor-pointer">
                       <input
@@ -472,7 +477,6 @@ export function RecepcionDashboard({ user, setUser }) {
                 </form>
               </div>
 
-              {/* Card Vista Rápida de Sala */}
               <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex-1">
                 <h3 className="text-xs font-bold text-gray-700 mb-2 uppercase tracking-wider">
                   Pacientes Registrados Hoy ({pacientesSala.length})
@@ -520,7 +524,6 @@ export function RecepcionDashboard({ user, setUser }) {
               </div>
             </div>
 
-            {/* Lado Derecho (35%): Shell Integrado Rentarhosting SAS */}
             <div className="w-[35%] bg-white rounded-xl shadow-sm border border-gray-200 flex flex-col overflow-hidden">
               <div className="bg-gray-100 p-2.5 border-b border-gray-200 flex justify-between items-center">
                 <span className="text-xs font-bold text-gray-700 truncate">
@@ -631,9 +634,7 @@ export function RecepcionDashboard({ user, setUser }) {
                 </div>
               </div>
 
-              {/* Formulario y Previsualizador de YouTube */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2 bg-gray-50 p-3 rounded-xl border border-gray-200">
-                {/* Formulario para cambiar video */}
                 <div className="flex flex-col justify-between">
                   <div>
                     <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
@@ -665,7 +666,6 @@ export function RecepcionDashboard({ user, setUser }) {
                   </div>
                 </div>
 
-                {/* Visor de lo que se transmite */}
                 <div className="flex flex-col">
                   <span className="text-[11px] font-bold text-gray-600 mb-1 flex items-center gap-1">
                     🔴 Transmisión Actual en TV:
@@ -746,7 +746,7 @@ export function RecepcionDashboard({ user, setUser }) {
                           </button>
                         )}
                         {["LLAMADO", "CONSULTA", "ATENDIDO"].includes(
-                          p.estadoTurno,
+                          p.estadoTurno
                         ) && (
                           <span className="text-[10px] text-gray-400 italic">
                             Gestionado en consultorio
@@ -771,4 +771,5 @@ export function RecepcionDashboard({ user, setUser }) {
     </div>
   );
 }
+
 export default RecepcionDashboard;
