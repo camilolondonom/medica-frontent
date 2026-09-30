@@ -1,23 +1,24 @@
+// Registro.jsx
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { API_URL } from '../config';
 
 export default function Registro() {
   const [formData, setFormData] = useState({
     documento: '',
     password: '',
     nombreCompleto: '',
-    rol: 'MEDICO' 
+    rol: 'MEDICO'
   });
   const [mensaje, setMensaje] = useState('');
   const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false); // Estado de carga integrado
+  const [loading, setLoading] = useState(false);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
 
-    // Validación para que la contraseña solo acepte números y máximo 6 caracteres
     if (name === 'password') {
-      const soloNumeros = value.replace(/\D/g, ''); // Remueve lo que no sea número
+      const soloNumeros = value.replace(/\D/g, '');
       if (soloNumeros.length <= 6) {
         setFormData({ ...formData, [name]: soloNumeros });
       }
@@ -34,9 +35,8 @@ export default function Registro() {
     e.preventDefault();
     setMensaje('');
     setError('');
-    setLoading(true); // Activa el estado de carga
+    setLoading(true);
 
-    // Validación extra antes de enviar
     if (formData.password.length !== 6) {
       setError('La contraseña debe tener exactamente 6 dígitos numéricos.');
       setLoading(false);
@@ -44,13 +44,13 @@ export default function Registro() {
     }
 
     try {
-      const response = await fetch('http://localhost:8080/api/usuarios/registro', {
+      const response = await fetch(`${API_URL}/api/usuarios/registro`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          documento: Number(formData.documento), // Enviamos como número
+          documento: Number(formData.documento),
           password: formData.password,
           nombreCompleto: formData.nombreCompleto,
           rol: formData.rol
@@ -68,7 +68,7 @@ export default function Registro() {
     } catch (err) {
       setError('No se pudo conectar con el servidor backend.');
     } finally {
-      setLoading(false); // Apaga el estado de carga al terminar la petición
+      setLoading(false);
     }
   };
 
@@ -77,24 +77,24 @@ export default function Registro() {
       <div style={styles.card}>
         <h2 style={styles.title}>Crear Nuevo Usuario</h2>
         <p style={styles.subtitle}>Completa los datos del personal de salud</p>
-        
+
         {mensaje && <div style={styles.successAlert}>{mensaje}</div>}
         {error && <div style={styles.errorAlert}>{error}</div>}
 
         <form onSubmit={handleSubmit} style={styles.form}>
-          
+
           <div style={styles.inputGroup}>
             <label style={styles.label}>Número de Documento (ID de acceso):</label>
-            <input 
-              type="text" 
-              name="documento" 
-              value={formData.documento} 
+            <input
+              type="text"
+              name="documento"
+              value={formData.documento}
               disabled={loading}
               onChange={(e) => {
                 const val = e.target.value.replace(/\D/g, '');
                 setFormData({ ...formData, documento: val });
               }}
-              required 
+              required
               placeholder="Ingresa la cédula o documento"
               style={styles.input}
             />
@@ -102,13 +102,13 @@ export default function Registro() {
 
           <div style={styles.inputGroup}>
             <label style={styles.label}>Nombre Completo:</label>
-            <input 
-              type="text" 
-              name="nombreCompleto" 
-              value={formData.nombreCompleto} 
-              onChange={handleChange} 
+            <input
+              type="text"
+              name="nombreCompleto"
+              value={formData.nombreCompleto}
+              onChange={handleChange}
               disabled={loading}
-              required 
+              required
               placeholder="Nombre y Apellidos"
               style={styles.input}
             />
@@ -116,24 +116,24 @@ export default function Registro() {
 
           <div style={styles.inputGroup}>
             <label style={styles.label}>Contraseña Numérica (6 dígitos):</label>
-            <input 
-              type="text" 
-              name="password" 
+            <input
+              type="text"
+              name="password"
               placeholder="Ej: 123456"
-              value={formData.password} 
-              onChange={handleChange} 
+              value={formData.password}
+              onChange={handleChange}
               disabled={loading}
-              required 
+              required
               style={{ ...styles.input, letterSpacing: '4px' }}
             />
           </div>
 
           <div style={styles.inputGroup}>
             <label style={styles.label}>Rol en la Clínica:</label>
-            <select 
-              name="rol" 
-              value={formData.rol} 
-              onChange={handleChange} 
+            <select
+              name="rol"
+              value={formData.rol}
+              onChange={handleChange}
               disabled={loading}
               style={styles.select}
             >
@@ -157,7 +157,6 @@ export default function Registro() {
   );
 }
 
-// Estilos unificados con el Manual de Diseño
 const styles = {
   container: {
     display: 'flex',
@@ -178,7 +177,7 @@ const styles = {
   },
   title: {
     margin: '0 0 8px 0',
-    color: 'var(--color-secondary)', /* Azul institucional */
+    color: 'var(--color-secondary)',
     fontSize: '26px',
     fontFamily: 'var(--font-title)'
   },
@@ -222,7 +221,7 @@ const styles = {
     outline: 'none'
   },
   button: {
-    backgroundColor: 'var(--color-primary)', /* Celeste / Cyan */
+    backgroundColor: 'var(--color-primary)',
     color: 'var(--color-white)',
     padding: '14px',
     border: 'none',

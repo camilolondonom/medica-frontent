@@ -1,5 +1,7 @@
+// services/websocketService.js
 import SockJS from 'sockjs-client';
 import { Client } from '@stomp/stompjs';
+import { WS_URL } from '../config';
 
 let stompClient = null;
 
@@ -9,7 +11,7 @@ export const conectarWebSocket = (onConnectCallback) => {
     return stompClient;
   }
 
-  const socket = new SockJS('http://localhost:8080/ws-turnos');
+  const socket = new SockJS(WS_URL);
   stompClient = new Client({
     webSocketFactory: () => socket,
     reconnectDelay: 5000,

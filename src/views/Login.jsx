@@ -1,15 +1,16 @@
+// Login.jsx
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import { API_URL } from "../config";
 
-// Recibimos la prop setUser que viene desde App.jsx
 const Login = ({ setUser }) => {
   const navigate = useNavigate();
   const [credentials, setCredentials] = useState({
     documento: "",
     password: "",
   });
-  const [loading, setLoading] = useState(false); // Estado de carga
-  const [error, setError] = useState(""); // Estado de error
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   const handleChange = (e) => {
     setCredentials({ ...credentials, [e.target.name]: e.target.value });
@@ -21,7 +22,7 @@ const Login = ({ setUser }) => {
     setError("");
 
     try {
-      const response = await fetch("http://localhost:8080/api/usuarios/login", {
+      const response = await fetch(`${API_URL}/api/usuarios/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -34,15 +35,12 @@ const Login = ({ setUser }) => {
         const data = await response.json();
         console.log("Login exitoso:", data);
 
-        // 1. Guardamos los datos en el almacenamiento local
         localStorage.setItem("usuario", JSON.stringify(data));
 
-        // 2. ACTUALIZACIÓN DEL ESTADO GLOBAL: Notifica a App.jsx
         if (setUser) {
           setUser(data);
         }
 
-        // 3. Redirección basada en el ROL devuelto por Spring Boot
         if (data.rol === "MEDICO") {
           navigate("/consulta");
         } else if (data.rol === "AUXILIAR_ADMINISTRATIVO") {
@@ -57,7 +55,7 @@ const Login = ({ setUser }) => {
     } catch (err) {
       setError("Error de conexión con el servidor");
     } finally {
-      setLoading(false); // Apaga el estado de carga al terminar
+      setLoading(false);
     }
   };
 
@@ -120,7 +118,6 @@ const Login = ({ setUser }) => {
   );
 };
 
-// Mantenemos los estilos intactos
 const styles = {
   container: {
     display: "flex",

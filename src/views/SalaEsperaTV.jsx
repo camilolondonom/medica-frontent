@@ -1,29 +1,27 @@
+// SalaEsperaTV.jsx
 import React, { useEffect, useRef, useState } from 'react';
 import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
+import { API_URL, WS_URL } from '../config';
 
-const API_BASE_URL = 'http://localhost:8080/api/atenciones';
+const API_BASE_URL = `${API_URL}/api/atenciones`;
 
 export const SalaEsperaTV = () => {
   const playerRef = useRef(null);
   const [isPlayerReady, setIsPlayerReady] = useState(false);
   const [fechaHora, setFechaHora] = useState(new Date());
 
-  // Estados de Turnos
   const [turnoAnterior, setTurnoAnterior] = useState(null);
   const [turnoActual, setTurnoActual] = useState(null);
   const [turnoSiguiente, setTurnoSiguiente] = useState(null);
 
-  // LISTA DE REPRODUCCIÓN POR DEFECTO (IDs de YouTube)
   const playlistDefault = ['dQw4w9WgXcQ', '3JZ_D3ELwOQ', 'L_LUpnjgPso'];
 
-  // Reloj
   useEffect(() => {
     const timer = setInterval(() => setFechaHora(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
 
-  // Cargar API de YouTube con Playlist
   useEffect(() => {
     const initPlayer = () => {
       if (window.YT && window.YT.Player) {
@@ -32,7 +30,7 @@ export const SalaEsperaTV = () => {
             autoplay: 1,
             controls: 0,
             mute: 1,
-            playlist: playlistDefault.join(','), // Carga la lista
+            playlist: playlistDefault.join(','),
           },
           events: {
             onReady: () => setIsPlayerReady(true),
@@ -56,7 +54,6 @@ export const SalaEsperaTV = () => {
     }
   }, []);
 
-  // Carga inicial de la fila del día (por si el TV se abre con pacientes ya registrados)
   useEffect(() => {
     const cargarEstadoInicial = async () => {
       try {
@@ -71,12 +68,11 @@ export const SalaEsperaTV = () => {
     cargarEstadoInicial();
   }, []);
 
-  // WebSockets
   useEffect(() => {
     let client;
     try {
       client = new Client({
-        webSocketFactory: () => new SockJS('http://localhost:8080/ws-turnos'),
+        webSocketFactory: () => new SockJS(WS_URL),
         reconnectDelay: 5000,
         onConnect: () => {
           client.subscribe('/topic/turnos', (message) => {
@@ -88,10 +84,6 @@ export const SalaEsperaTV = () => {
             }
           });
 
-          // Comandos de Control Remoto de TV
-          // NOTA: el backend todavía no publica en este canal (pendiente,
-          // ver "Control de TV" en el roadmap) — se deja preparado para cuando
-          // se implemente /app/cambiar-video-tv en el backend.
           client.subscribe('/topic/tv-control', (message) => {
             try {
               const command = JSON.parse(message.body);
@@ -109,19 +101,13 @@ export const SalaEsperaTV = () => {
     return () => { if (client) client.deactivate(); };
   }, [isPlayerReady]);
 
-  // Determina qué mostrar en las 3 tarjetas, respetando el orden real de
-  // llegada (el backend ya entrega la lista ordenada por hora_llegada).
   const procesarTurnosPrivacidad = (listaPacientes) => {
     const atendidosHoy = listaPacientes.filter((p) => p.estadoTurno === 'ATENDIDO');
 
-    // "Actual" cubre tanto Llamado (esperando que entre) como Consulta (ya confirmado)
     const actual = listaPacientes.find(
       (p) => p.estadoTurno === 'LLAMADO' || p.estadoTurno === 'CONSULTA',
     );
 
-    // "Siguiente" es el próximo en el orden de llegada que aún no ha sido
-    // atendido ni está en curso — incluye a los Ausentes a propósito,
-    // para que vean su turno acercándose y se animen a anunciarse.
     const pendientes = listaPacientes.filter(
       (p) => p.estadoTurno === 'ESPERA' || p.estadoTurno === 'AUSENTE',
     );
@@ -131,7 +117,6 @@ export const SalaEsperaTV = () => {
     setTurnoSiguiente(pendientes.length > 0 ? pendientes[0] : null);
   };
 
-  // CONTROL DE REPRODUCTOR DESDE RECEPCIÓN
   const handleTvCommand = (command) => {
     const player = playerRef.current;
     if (!player) return;
