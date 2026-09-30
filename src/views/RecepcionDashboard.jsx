@@ -1,8 +1,11 @@
+// RecepcionDashboard.jsx
 import { useState, useEffect, useRef } from "react";
 import SockJS from "sockjs-client/dist/sockjs";
 import { Client } from "@stomp/stompjs";
+import { API_URL, WS_URL } from "../config";
 
-const API_BASE_URL = "http://localhost:8080/api/atenciones";
+const API_BASE_URL = `${API_URL}/api/atenciones`;
+const RENTARHOSTING_URL = "https://historycl.com/566414569/usuarios/login";
 
 const SERVICIOS_DISPONIBLES = [
   { label: "Consulta Médica General", value: "CONSULTA_GENERAL" },
@@ -10,6 +13,7 @@ const SERVICIOS_DISPONIBLES = [
   { label: "Certificado Menor de Edad", value: "CERT_MENOR" },
   { label: "Certificado de Huella", value: "HUELLA" },
   { label: "Crecimiento y Desarrollo", value: "CTO_DLLO" },
+  { label: "Revisión de Consulta (sin cobro)", value: "REVISION_CONSULTA" },
 ];
 
 const ESTADOS_INFO = {
@@ -28,14 +32,8 @@ export function RecepcionDashboard({ user, setUser }) {
   const [conectado, setConectado] = useState(false);
   const stompClientRef = useRef(null);
 
-  // URL del sistema externo Rentarhosting
-  const [urlRentarhosting, setUrlRentarhosting] = useState(
-    "https://historycl.com/566414569/usuarios/login"
-  );
-
-  // Control de Video de YouTube para la Sala de Espera
   const [urlYoutubeInput, setUrlYoutubeInput] = useState(
-    "https://www.youtube.com/watch?v=jfKfPfyJRdk"
+    "https://www.youtube.com/watch?v=jfKfPfyJRdk",
   );
   const [videoYoutubeId, setVideoYoutubeId] = useState("jfKfPfyJRdk");
 
@@ -50,7 +48,6 @@ export function RecepcionDashboard({ user, setUser }) {
 
   const [pacientesSala, setPacientesSala] = useState([]);
 
-  // Título de la Pestaña y Favicon
   useEffect(() => {
     document.title = "Dra CLM Recepción";
 
@@ -63,7 +60,6 @@ export function RecepcionDashboard({ user, setUser }) {
     link.href = "/favicon.png";
   }, []);
 
-  // Carga inicial de la fila del día desde el backend
   const cargarPacientesDelDia = async () => {
     try {
       const res = await fetch(API_BASE_URL);
@@ -79,10 +75,9 @@ export function RecepcionDashboard({ user, setUser }) {
     cargarPacientesDelDia();
   }, []);
 
-  // Conexión a WebSocket
   useEffect(() => {
     const client = new Client({
-      webSocketFactory: () => new SockJS("http://localhost:8080/ws-turnos"),
+      webSocketFactory: () => new SockJS(WS_URL),
       reconnectDelay: 5000,
       onConnect: () => {
         setConectado(true);
@@ -220,10 +215,9 @@ export function RecepcionDashboard({ user, setUser }) {
 
   return (
     <div className="flex h-screen bg-gray-100 font-sans">
-      {/* SIDEBAR REDISEÑADO (ESTILO MÉDICO) */}
+      {/* SIDEBAR */}
       <aside className="w-64 bg-[#1b75bb] text-white flex flex-col justify-between shadow-xl z-10 select-none">
         <div>
-          {/* Header del Perfil / Rol */}
           <div className="p-4 border-b border-blue-400/40 bg-blue-900/20 flex items-center space-x-3">
             <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center font-bold text-lg text-white border border-white/30 shadow-inner">
               📋
@@ -238,7 +232,6 @@ export function RecepcionDashboard({ user, setUser }) {
             </div>
           </div>
 
-          {/* Menú de Navegación */}
           <nav className="mt-4 px-3 space-y-1.5">
             <button
               onClick={() => setSeccionActiva("admision")}
@@ -278,7 +271,6 @@ export function RecepcionDashboard({ user, setUser }) {
           </nav>
         </div>
 
-        {/* Footer del Sidebar: Estado de Socket y Logout */}
         <div className="p-4 border-t border-blue-400/40 bg-blue-900/30">
           <div className="flex items-center justify-between mb-3 px-1">
             <div className="flex items-center space-x-2">
@@ -304,10 +296,14 @@ export function RecepcionDashboard({ user, setUser }) {
         </div>
       </aside>
 
-      {/* Área Principal de Trabajo */}
+      {/* ÁREA PRINCIPAL */}
       <main className="flex-1 flex flex-col overflow-hidden bg-gray-50">
-        {/* VISTA 1: ADMISIÓN E INGRESO DE PACIENTES */}
-        {seccionActiva === "admision" && (
+        {/* VISTA 1: ADMISIÓN E INGRESO — iframe propio, sesión independiente */}
+        <div
+          className={
+            seccionActiva === "admision" ? "flex-1 flex flex-col min-h-0" : "hidden"
+          }
+        >
           <div className="flex-1 flex p-3 gap-3 overflow-hidden">
             <div className="w-[65%] flex flex-col gap-3 overflow-y-auto">
               <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
@@ -318,10 +314,7 @@ export function RecepcionDashboard({ user, setUser }) {
                   </span>
                 </h2>
 
-                <form
-                  onSubmit={handleRegistrarTurno}
-                  className="grid grid-cols-2 gap-3"
-                >
+                <form onSubmit={handleRegistrarTurno} className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-[11px] font-bold text-gray-700 uppercase mb-1">
                       Documento de Identidad *
@@ -332,10 +325,7 @@ export function RecepcionDashboard({ user, setUser }) {
                         required
                         value={formTurno.documento}
                         onChange={(e) =>
-                          setFormTurno({
-                            ...formTurno,
-                            documento: e.target.value,
-                          })
+                          setFormTurno({ ...formTurno, documento: e.target.value })
                         }
                         placeholder="Número de cédula o TI"
                         className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-xs focus:ring-2 focus:ring-[#00adee] focus:border-transparent outline-none transition"
@@ -343,9 +333,7 @@ export function RecepcionDashboard({ user, setUser }) {
                       {formTurno.documento && (
                         <button
                           type="button"
-                          onClick={() =>
-                            copiarPortapapeles(formTurno.documento, "Documento")
-                          }
+                          onClick={() => copiarPortapapeles(formTurno.documento, "Documento")}
                           className="bg-gray-100 hover:bg-gray-200 px-2 py-1 rounded text-[10px] font-bold border text-gray-600"
                           title="Copiar Documento"
                         >
@@ -377,10 +365,7 @@ export function RecepcionDashboard({ user, setUser }) {
                         <button
                           type="button"
                           onClick={() =>
-                            copiarPortapapeles(
-                              formTurno.nombrePaciente,
-                              "Nombre"
-                            )
+                            copiarPortapapeles(formTurno.nombrePaciente, "Nombre")
                           }
                           className="bg-gray-100 hover:bg-gray-200 px-2 py-1 rounded text-[10px] font-bold border text-gray-600"
                           title="Copiar Nombre"
@@ -423,9 +408,7 @@ export function RecepcionDashboard({ user, setUser }) {
                         }
                         className="rounded text-[#00adee] focus:ring-[#00adee] h-3.5 w-3.5"
                       />
-                      <span>
-                        ¿Requiere Constancia de Asistencia para Acompañante?
-                      </span>
+                      <span>¿Requiere Constancia de Asistencia para Acompañante?</span>
                     </label>
                   </div>
 
@@ -512,8 +495,7 @@ export function RecepcionDashboard({ user, setUser }) {
                                 "bg-gray-100 text-gray-700"
                               }`}
                             >
-                              {ESTADOS_INFO[p.estadoTurno]?.label ||
-                                p.estadoTurno}
+                              {ESTADOS_INFO[p.estadoTurno]?.label || p.estadoTurno}
                             </span>
                           </td>
                         </tr>
@@ -535,86 +517,92 @@ export function RecepcionDashboard({ user, setUser }) {
               </div>
               <div className="flex-1 bg-gray-50 relative">
                 <iframe
-                  src={urlRentarhosting}
-                  title="Rentarhosting SAS Visor"
+                  src={RENTARHOSTING_URL}
+                  title="Rentarhosting SAS — Admisión"
                   className="w-full h-full border-0"
                 />
               </div>
             </div>
           </div>
-        )}
+        </div>
 
-        {/* VISTA 2: FACTURACIÓN ELECTRÓNICA */}
-        {seccionActiva === "facturacion" && (
+        {/* VISTA 2: FACTURACIÓN — iframe propio, sesión independiente */}
+        <div
+          className={
+            seccionActiva === "facturacion" ? "flex-1 flex flex-col min-h-0" : "hidden"
+          }
+        >
           <div className="flex-1 flex p-3 gap-3 overflow-hidden">
             <div className="w-[35%] bg-white rounded-xl shadow-sm border border-gray-200 p-3 flex flex-col">
               <h3 className="font-bold text-xs text-gray-700 uppercase mb-2 border-b pb-1">
-                📋 Pacientes en Sala (Copiar Datos)
+                📋 Pacientes Atendidos (Copiar Datos)
               </h3>
               <div className="flex-1 overflow-y-auto space-y-2">
-                {pacientesSala.map((p) => (
-                  <div
-                    key={p.idAtencion}
-                    className="p-2.5 border rounded-lg bg-gray-50 hover:bg-blue-50/50 transition flex flex-col gap-1.5"
-                  >
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <p className="font-bold text-xs text-gray-800">
-                          {p.nombreCompleto}
-                        </p>
-                        <p className="text-[10px] text-gray-500 font-mono">
-                          CC: {p.documento}
-                        </p>
-                        <p className="text-[10px] text-blue-600">
-                          {obtenerLabelServicio(p.tipoServicio)}
-                        </p>
+                {pacientesSala
+                  .filter(
+                    (p) =>
+                      p.estadoTurno === "ATENDIDO" &&
+                      p.tipoServicio !== "REVISION_CONSULTA",
+                  )
+                  .map((p) => (
+                    <div
+                      key={p.idAtencion}
+                      className="p-2.5 border rounded-lg bg-gray-50 hover:bg-blue-50/50 transition flex flex-col gap-1.5"
+                    >
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <p className="font-bold text-xs text-gray-800">
+                            {p.nombreCompleto}
+                          </p>
+                          <p className="text-[10px] text-gray-500 font-mono">
+                            CC: {p.documento}
+                          </p>
+                          <p className="text-[10px] text-blue-600">
+                            {obtenerLabelServicio(p.tipoServicio)}
+                          </p>
+                        </div>
+                        <span className="text-[10px] bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded font-mono">
+                          {p.horaLlegada}
+                        </span>
                       </div>
-                      <span className="text-[10px] bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded font-mono">
-                        {p.horaLlegada}
-                      </span>
+                      <div className="flex gap-1 pt-1 border-t border-gray-200">
+                        <button
+                          onClick={() => copiarPortapapeles(p.documento, "Documento")}
+                          className="flex-1 bg-[#1b75bb] text-white hover:bg-blue-700 text-[10px] py-1 rounded font-bold shadow-sm"
+                        >
+                          Copiar CC
+                        </button>
+                        <button
+                          onClick={() =>
+                            copiarPortapapeles(p.nombreCompleto, "Nombre")
+                          }
+                          className="flex-1 bg-gray-200 text-gray-700 hover:bg-gray-300 text-[10px] py-1 rounded font-bold"
+                        >
+                          Copiar Nombre
+                        </button>
+                      </div>
                     </div>
-                    <div className="flex gap-1 pt-1 border-t border-gray-200">
-                      <button
-                        onClick={() =>
-                          copiarPortapapeles(p.documento, "Documento")
-                        }
-                        className="flex-1 bg-[#1b75bb] text-white hover:bg-blue-700 text-[10px] py-1 rounded font-bold shadow-sm"
-                      >
-                        Copiar CC
-                      </button>
-                      <button
-                        onClick={() =>
-                          copiarPortapapeles(p.nombreCompleto, "Nombre")
-                        }
-                        className="flex-1 bg-gray-200 text-gray-700 hover:bg-gray-300 text-[10px] py-1 rounded font-bold"
-                      >
-                        Copiar Nombre
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                  ))}
               </div>
             </div>
 
             <div className="w-[65%] bg-white rounded-xl shadow-sm border border-gray-200 flex flex-col overflow-hidden">
               <div className="bg-gray-100 p-2.5 border-b text-xs font-bold text-gray-700 flex justify-between items-center">
-                <span>
-                  🧾 Facturación Electrónica y RIPS (Rentarhosting SAS)
-                </span>
+                <span>🧾 Rentarhosting SAS — Facturación y RIPS</span>
                 <span className="text-[10px] bg-blue-100 text-blue-800 font-semibold px-2 py-0.5 rounded">
                   Sistema Directo
                 </span>
               </div>
               <div className="flex-1 bg-gray-50">
                 <iframe
-                  src={`${urlRentarhosting}/facturacion`}
-                  title="Facturación Rentarhosting"
+                  src={RENTARHOSTING_URL}
+                  title="Rentarhosting SAS — Facturación"
                   className="w-full h-full border-0"
                 />
               </div>
             </div>
           </div>
-        )}
+        </div>
 
         {/* VISTA 3: CONTROL DE TV Y SALA */}
         {seccionActiva === "control-tv" && (
@@ -641,8 +629,7 @@ export function RecepcionDashboard({ user, setUser }) {
                       ▶️ Cambiar Video en Sala de Espera
                     </label>
                     <p className="text-[11px] text-gray-500 mb-2">
-                      Pega aquí el enlace o ID del video de YouTube que deseas
-                      mostrar en el TV.
+                      Pega aquí el enlace o ID del video de YouTube que deseas mostrar en el TV.
                     </p>
                     <form onSubmit={handleCambiarVideo} className="space-y-2">
                       <input
@@ -661,8 +648,7 @@ export function RecepcionDashboard({ user, setUser }) {
                     </form>
                   </div>
                   <div className="mt-3 text-[10px] text-gray-400 border-t pt-2">
-                    * Al presionar transmitir, se actualizará en tiempo real la
-                    pantalla de la sala de espera mediante WebSocket.
+                    * Al presionar transmitir, se actualizará en tiempo real la pantalla de la sala de espera mediante WebSocket.
                   </div>
                 </div>
 
@@ -704,9 +690,7 @@ export function RecepcionDashboard({ user, setUser }) {
                 <tbody className="divide-y text-gray-700">
                   {pacientesSala.map((p) => (
                     <tr key={p.idAtencion} className="hover:bg-gray-50">
-                      <td className="p-2.5 font-bold text-gray-800">
-                        {p.nombreCompleto}
-                      </td>
+                      <td className="p-2.5 font-bold text-gray-800">{p.nombreCompleto}</td>
                       <td className="p-2.5 font-mono">{p.documento}</td>
                       <td className="p-2.5 text-gray-600">
                         {obtenerLabelServicio(p.tipoServicio)}
@@ -727,9 +711,7 @@ export function RecepcionDashboard({ user, setUser }) {
                       <td className="p-2.5 text-center space-x-2 whitespace-nowrap">
                         {p.estadoTurno === "ESPERA" && (
                           <button
-                            onClick={() =>
-                              cambiarEstadoPaciente(p.idAtencion, "ausente")
-                            }
+                            onClick={() => cambiarEstadoPaciente(p.idAtencion, "ausente")}
                             className="bg-red-500 hover:bg-red-600 text-white text-[10px] px-2 py-1 rounded font-bold shadow-sm transition"
                           >
                             Marcar Ausente
@@ -737,17 +719,13 @@ export function RecepcionDashboard({ user, setUser }) {
                         )}
                         {p.estadoTurno === "AUSENTE" && (
                           <button
-                            onClick={() =>
-                              cambiarEstadoPaciente(p.idAtencion, "espera")
-                            }
+                            onClick={() => cambiarEstadoPaciente(p.idAtencion, "espera")}
                             className="bg-yellow-500 hover:bg-yellow-600 text-white text-[10px] px-2 py-1 rounded font-bold shadow-sm transition"
                           >
                             Ya llegó: A Espera
                           </button>
                         )}
-                        {["LLAMADO", "CONSULTA", "ATENDIDO"].includes(
-                          p.estadoTurno
-                        ) && (
+                        {["LLAMADO", "CONSULTA", "ATENDIDO"].includes(p.estadoTurno) && (
                           <span className="text-[10px] text-gray-400 italic">
                             Gestionado en consultorio
                           </span>
