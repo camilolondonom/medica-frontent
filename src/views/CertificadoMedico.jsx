@@ -337,6 +337,9 @@ export default function CertificadoMedico({ pacienteActivo, user }) {
 
       <style>{`
         @media print {
+          nav, aside, header, .no-print {
+            display: none !important;
+          }
           @page {
             size: letter portrait;
             margin: 12mm;
