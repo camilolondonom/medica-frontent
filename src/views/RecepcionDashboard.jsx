@@ -16,6 +16,14 @@ const SERVICIOS_DISPONIBLES = [
   { label: "Revisión de Consulta (sin cobro)", value: "REVISION_CONSULTA" },
 ];
 
+// Servicios para los que tiene sentido pedir fecha de nacimiento y sexo
+const SERVICIOS_CON_FECHA_NACIMIENTO = [
+  "CERT_MAYOR",
+  "CERT_MENOR",
+  "HUELLA",
+  "CTO_DLLO",
+];
+
 const ESTADOS_INFO = {
   ESPERA: { label: "En Espera", clase: "bg-yellow-100 text-yellow-800" },
   LLAMADO: { label: "Llamado", clase: "bg-purple-100 text-purple-800" },
@@ -41,6 +49,8 @@ export function RecepcionDashboard({ user, setUser }) {
     nombrePaciente: "",
     documento: "",
     servicio: SERVICIOS_DISPONIBLES[0].value,
+    fechaNacimiento: "",
+    genero: "",
     requiereAcompanante: false,
     nombreAcompanante: "",
     documentoAcompanante: "",
@@ -132,11 +142,29 @@ export function RecepcionDashboard({ user, setUser }) {
       return;
     }
 
+    if (
+      SERVICIOS_CON_FECHA_NACIMIENTO.includes(formTurno.servicio) &&
+      formTurno.servicio === "CTO_DLLO" &&
+      (!formTurno.fechaNacimiento || !formTurno.genero)
+    ) {
+      alert(
+        "Para Crecimiento y Desarrollo, la fecha de nacimiento y el sexo son obligatorios.",
+      );
+      return;
+    }
+
     const payload = {
       documento: Number(formTurno.documento),
       nombreCompleto: formTurno.nombrePaciente,
       tipoServicio: formTurno.servicio,
     };
+
+    // Solo se envían si el servicio los requiere y la recepcionista los diligenció
+    if (SERVICIOS_CON_FECHA_NACIMIENTO.includes(formTurno.servicio)) {
+      if (formTurno.fechaNacimiento)
+        payload.fechaNacimiento = formTurno.fechaNacimiento;
+      if (formTurno.genero) payload.genero = formTurno.genero;
+    }
 
     try {
       const res = await fetch(API_BASE_URL, {
@@ -157,6 +185,8 @@ export function RecepcionDashboard({ user, setUser }) {
         nombrePaciente: "",
         documento: "",
         servicio: SERVICIOS_DISPONIBLES[0].value,
+        fechaNacimiento: "",
+        genero: "",
         requiereAcompanante: false,
         nombreAcompanante: "",
         documentoAcompanante: "",
@@ -212,6 +242,11 @@ export function RecepcionDashboard({ user, setUser }) {
     navigator.clipboard.writeText(texto);
     alert(`📋 ${etiqueta} (${texto}) copiado al portapapeles.`);
   };
+
+  const mostrarCamposFecha = SERVICIOS_CON_FECHA_NACIMIENTO.includes(
+    formTurno.servicio,
+  );
+  const esCrecimientoYDesarrollo = formTurno.servicio === "CTO_DLLO";
 
   return (
     <div className="flex h-screen bg-gray-100 font-sans">
@@ -283,7 +318,9 @@ export function RecepcionDashboard({ user, setUser }) {
                 {conectado ? "Servidor Online" : "Desconectado"}
               </span>
             </div>
-            <span className="text-[10px] text-blue-200/70 font-mono">WS v1.0</span>
+            <span className="text-[10px] text-blue-200/70 font-mono">
+              WS v1.0
+            </span>
           </div>
 
           <button
@@ -298,10 +335,12 @@ export function RecepcionDashboard({ user, setUser }) {
 
       {/* ÁREA PRINCIPAL */}
       <main className="flex-1 flex flex-col overflow-hidden bg-gray-50">
-        {/* VISTA 1: ADMISIÓN E INGRESO — iframe propio, sesión independiente */}
+        {/* VISTA 1: ADMISIÓN E INGRESO */}
         <div
           className={
-            seccionActiva === "admision" ? "flex-1 flex flex-col min-h-0" : "hidden"
+            seccionActiva === "admision"
+              ? "flex-1 flex flex-col min-h-0"
+              : "hidden"
           }
         >
           <div className="flex-1 flex p-3 gap-3 overflow-hidden">
@@ -314,7 +353,10 @@ export function RecepcionDashboard({ user, setUser }) {
                   </span>
                 </h2>
 
-                <form onSubmit={handleRegistrarTurno} className="grid grid-cols-2 gap-3">
+                <form
+                  onSubmit={handleRegistrarTurno}
+                  className="grid grid-cols-2 gap-3"
+                >
                   <div>
                     <label className="block text-[11px] font-bold text-gray-700 uppercase mb-1">
                       Documento de Identidad *
@@ -325,7 +367,10 @@ export function RecepcionDashboard({ user, setUser }) {
                         required
                         value={formTurno.documento}
                         onChange={(e) =>
-                          setFormTurno({ ...formTurno, documento: e.target.value })
+                          setFormTurno({
+                            ...formTurno,
+                            documento: e.target.value,
+                          })
                         }
                         placeholder="Número de cédula o TI"
                         className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-xs focus:ring-2 focus:ring-[#00adee] focus:border-transparent outline-none transition"
@@ -333,7 +378,9 @@ export function RecepcionDashboard({ user, setUser }) {
                       {formTurno.documento && (
                         <button
                           type="button"
-                          onClick={() => copiarPortapapeles(formTurno.documento, "Documento")}
+                          onClick={() =>
+                            copiarPortapapeles(formTurno.documento, "Documento")
+                          }
                           className="bg-gray-100 hover:bg-gray-200 px-2 py-1 rounded text-[10px] font-bold border text-gray-600"
                           title="Copiar Documento"
                         >
@@ -365,7 +412,10 @@ export function RecepcionDashboard({ user, setUser }) {
                         <button
                           type="button"
                           onClick={() =>
-                            copiarPortapapeles(formTurno.nombrePaciente, "Nombre")
+                            copiarPortapapeles(
+                              formTurno.nombrePaciente,
+                              "Nombre",
+                            )
                           }
                           className="bg-gray-100 hover:bg-gray-200 px-2 py-1 rounded text-[10px] font-bold border text-gray-600"
                           title="Copiar Nombre"
@@ -395,6 +445,55 @@ export function RecepcionDashboard({ user, setUser }) {
                     </select>
                   </div>
 
+                  {/* Campos condicionales: solo para Certificados y Crecimiento y Desarrollo */}
+                  {mostrarCamposFecha && (
+                    <div className="col-span-2 bg-amber-50/60 p-3 rounded-lg border border-amber-100 grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-[10px] font-bold text-gray-600 uppercase mb-1">
+                          Fecha de Nacimiento{" "}
+                          {esCrecimientoYDesarrollo && (
+                            <span className="text-red-500">*</span>
+                          )}
+                        </label>
+                        <input
+                          type="date"
+                          required={esCrecimientoYDesarrollo}
+                          value={formTurno.fechaNacimiento}
+                          onChange={(e) =>
+                            setFormTurno({
+                              ...formTurno,
+                              fechaNacimiento: e.target.value,
+                            })
+                          }
+                          className="w-full border border-gray-300 rounded px-2 py-1 text-xs bg-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold text-gray-600 uppercase mb-1">
+                          Sexo{" "}
+                          {esCrecimientoYDesarrollo && (
+                            <span className="text-red-500">*</span>
+                          )}
+                        </label>
+                        <select
+                          required={esCrecimientoYDesarrollo}
+                          value={formTurno.genero}
+                          onChange={(e) =>
+                            setFormTurno({
+                              ...formTurno,
+                              genero: e.target.value,
+                            })
+                          }
+                          className="w-full border border-gray-300 rounded px-2 py-1 text-xs bg-white"
+                        >
+                          <option value="">Seleccione...</option>
+                          <option value="M">Masculino</option>
+                          <option value="F">Femenino</option>
+                        </select>
+                      </div>
+                    </div>
+                  )}
+
                   <div className="col-span-2 pt-1">
                     <label className="flex items-center space-x-2 text-xs font-semibold text-gray-700 cursor-pointer">
                       <input
@@ -408,7 +507,9 @@ export function RecepcionDashboard({ user, setUser }) {
                         }
                         className="rounded text-[#00adee] focus:ring-[#00adee] h-3.5 w-3.5"
                       />
-                      <span>¿Requiere Constancia de Asistencia para Acompañante?</span>
+                      <span>
+                        ¿Requiere Constancia de Asistencia para Acompañante?
+                      </span>
                     </label>
                   </div>
 
@@ -424,7 +525,7 @@ export function RecepcionDashboard({ user, setUser }) {
                           onChange={(e) =>
                             setFormTurno({
                               ...formTurno,
-                              nombreAcompanante: e.target.value,
+                              nombreAcompanante: e.target.value.toUpperCase(),
                             })
                           }
                           className="w-full border border-gray-300 rounded px-2 py-1 text-xs bg-white"
@@ -495,7 +596,8 @@ export function RecepcionDashboard({ user, setUser }) {
                                 "bg-gray-100 text-gray-700"
                               }`}
                             >
-                              {ESTADOS_INFO[p.estadoTurno]?.label || p.estadoTurno}
+                              {ESTADOS_INFO[p.estadoTurno]?.label ||
+                                p.estadoTurno}
                             </span>
                           </td>
                         </tr>
@@ -526,10 +628,12 @@ export function RecepcionDashboard({ user, setUser }) {
           </div>
         </div>
 
-        {/* VISTA 2: FACTURACIÓN — iframe propio, sesión independiente */}
+        {/* VISTA 2: FACTURACIÓN */}
         <div
           className={
-            seccionActiva === "facturacion" ? "flex-1 flex flex-col min-h-0" : "hidden"
+            seccionActiva === "facturacion"
+              ? "flex-1 flex flex-col min-h-0"
+              : "hidden"
           }
         >
           <div className="flex-1 flex p-3 gap-3 overflow-hidden">
@@ -567,7 +671,9 @@ export function RecepcionDashboard({ user, setUser }) {
                       </div>
                       <div className="flex gap-1 pt-1 border-t border-gray-200">
                         <button
-                          onClick={() => copiarPortapapeles(p.documento, "Documento")}
+                          onClick={() =>
+                            copiarPortapapeles(p.documento, "Documento")
+                          }
                           className="flex-1 bg-[#1b75bb] text-white hover:bg-blue-700 text-[10px] py-1 rounded font-bold shadow-sm"
                         >
                           Copiar CC
@@ -629,7 +735,8 @@ export function RecepcionDashboard({ user, setUser }) {
                       ▶️ Cambiar Video en Sala de Espera
                     </label>
                     <p className="text-[11px] text-gray-500 mb-2">
-                      Pega aquí el enlace o ID del video de YouTube que deseas mostrar en el TV.
+                      Pega aquí el enlace o ID del video de YouTube que deseas
+                      mostrar en el TV.
                     </p>
                     <form onSubmit={handleCambiarVideo} className="space-y-2">
                       <input
@@ -648,7 +755,8 @@ export function RecepcionDashboard({ user, setUser }) {
                     </form>
                   </div>
                   <div className="mt-3 text-[10px] text-gray-400 border-t pt-2">
-                    * Al presionar transmitir, se actualizará en tiempo real la pantalla de la sala de espera mediante WebSocket.
+                    * Al presionar transmitir, se actualizará en tiempo real la
+                    pantalla de la sala de espera mediante WebSocket.
                   </div>
                 </div>
 
@@ -690,7 +798,9 @@ export function RecepcionDashboard({ user, setUser }) {
                 <tbody className="divide-y text-gray-700">
                   {pacientesSala.map((p) => (
                     <tr key={p.idAtencion} className="hover:bg-gray-50">
-                      <td className="p-2.5 font-bold text-gray-800">{p.nombreCompleto}</td>
+                      <td className="p-2.5 font-bold text-gray-800">
+                        {p.nombreCompleto}
+                      </td>
                       <td className="p-2.5 font-mono">{p.documento}</td>
                       <td className="p-2.5 text-gray-600">
                         {obtenerLabelServicio(p.tipoServicio)}
@@ -711,7 +821,9 @@ export function RecepcionDashboard({ user, setUser }) {
                       <td className="p-2.5 text-center space-x-2 whitespace-nowrap">
                         {p.estadoTurno === "ESPERA" && (
                           <button
-                            onClick={() => cambiarEstadoPaciente(p.idAtencion, "ausente")}
+                            onClick={() =>
+                              cambiarEstadoPaciente(p.idAtencion, "ausente")
+                            }
                             className="bg-red-500 hover:bg-red-600 text-white text-[10px] px-2 py-1 rounded font-bold shadow-sm transition"
                           >
                             Marcar Ausente
@@ -719,13 +831,17 @@ export function RecepcionDashboard({ user, setUser }) {
                         )}
                         {p.estadoTurno === "AUSENTE" && (
                           <button
-                            onClick={() => cambiarEstadoPaciente(p.idAtencion, "espera")}
+                            onClick={() =>
+                              cambiarEstadoPaciente(p.idAtencion, "espera")
+                            }
                             className="bg-yellow-500 hover:bg-yellow-600 text-white text-[10px] px-2 py-1 rounded font-bold shadow-sm transition"
                           >
                             Ya llegó: A Espera
                           </button>
                         )}
-                        {["LLAMADO", "CONSULTA", "ATENDIDO"].includes(p.estadoTurno) && (
+                        {["LLAMADO", "CONSULTA", "ATENDIDO"].includes(
+                          p.estadoTurno,
+                        ) && (
                           <span className="text-[10px] text-gray-400 italic">
                             Gestionado en consultorio
                           </span>

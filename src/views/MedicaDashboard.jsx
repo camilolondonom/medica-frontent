@@ -1,11 +1,14 @@
+// MedicaDashboard.jsx
 import React, { useState, useEffect, useRef } from "react";
 import SockJS from "sockjs-client/dist/sockjs";
 import { Client } from "@stomp/stompjs";
 import FormulaMedica from "./FormulaMedica";
 import CertificadoMedico from "./CertificadoMedico";
 import CertificadoHuella from "./CertificadoHuella";
+import CrecimientoDesarrollo from "./CrecimientoDesarrollo";
+import { API_URL, WS_URL } from "../config";
 
-const API_BASE_URL = "http://localhost:8080/api/atenciones";
+const API_BASE_URL = `${API_URL}/api/atenciones`;
 
 const ESTADOS_INFO = {
   ESPERA: { label: "En Espera", clase: "bg-yellow-100 text-yellow-800" },
@@ -35,7 +38,6 @@ export default function MedicaDashboard({ user, setUser }) {
   const [showDxModal, setShowDxModal] = useState(false);
   const [dxInputs, setDxInputs] = useState(["", "", ""]);
 
-  // Asignar el título a la pestaña del navegador
   useEffect(() => {
     document.title = "DraCLM Médica";
   }, []);
@@ -67,7 +69,7 @@ export default function MedicaDashboard({ user, setUser }) {
 
   useEffect(() => {
     const client = new Client({
-      webSocketFactory: () => new SockJS("http://localhost:8080/ws-turnos"),
+      webSocketFactory: () => new SockJS(WS_URL),
       reconnectDelay: 5000,
       onConnect: () => {
         setConectado(true);
@@ -142,9 +144,7 @@ export default function MedicaDashboard({ user, setUser }) {
     try {
       const res = await fetch(
         `${API_BASE_URL}/${pacienteLlamado.idAtencion}/confirmar-ingreso`,
-        {
-          method: "PATCH",
-        }
+        { method: "PATCH" },
       );
       if (!res.ok) {
         alert(`No se pudo confirmar el ingreso: ${await res.text()}`);
@@ -162,9 +162,7 @@ export default function MedicaDashboard({ user, setUser }) {
     try {
       const res = await fetch(
         `${API_BASE_URL}/${pacienteLlamado.idAtencion}/ausente`,
-        {
-          method: "PATCH",
-        }
+        { method: "PATCH" },
       );
       if (!res.ok) {
         alert(`No se pudo marcar Ausente: ${await res.text()}`);
@@ -183,11 +181,9 @@ export default function MedicaDashboard({ user, setUser }) {
   };
 
   return (
-    <div className="flex h-screen bg-gray-100 font-sans">
-      {/* Sidebar Lateral (Estilo Rediseñado Recepción) */}
-      <aside className="w-64 bg-[#1b75bb] text-white flex flex-col justify-between shadow-xl z-10 select-none">
+    <div className="flex h-screen bg-gray-100 font-sans print:block print:h-auto">
+      <aside className="w-64 bg-[#1b75bb] text-white flex flex-col justify-between shadow-xl z-10 select-none no-print">
         <div>
-          {/* Header del Perfil / Rol */}
           <div className="p-4 border-b border-blue-400/40 bg-blue-900/20 flex items-center space-x-3">
             <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center font-bold text-lg text-white border border-white/30 shadow-inner">
               🩺
@@ -202,7 +198,6 @@ export default function MedicaDashboard({ user, setUser }) {
             </div>
           </div>
 
-          {/* Menú de Navegación */}
           <nav className="mt-4 px-3 space-y-1.5">
             <button
               onClick={() => setSeccionActiva("consulta")}
@@ -278,7 +273,6 @@ export default function MedicaDashboard({ user, setUser }) {
           </nav>
         </div>
 
-        {/* Footer del Sidebar */}
         <div className="p-4 border-t border-blue-400/40 bg-blue-900/30">
           <div className="flex items-center justify-between mb-3 px-1">
             <div className="flex items-center space-x-2">
@@ -291,7 +285,9 @@ export default function MedicaDashboard({ user, setUser }) {
                 {conectado ? "Servidor Online" : "Desconectado"}
               </span>
             </div>
-            <span className="text-[10px] text-blue-200/70 font-mono">WS v1.0</span>
+            <span className="text-[10px] text-blue-200/70 font-mono">
+              WS v1.0
+            </span>
           </div>
 
           <button
@@ -304,10 +300,8 @@ export default function MedicaDashboard({ user, setUser }) {
         </div>
       </aside>
 
-      {/* Área Principal */}
-      <main className="flex-1 flex flex-col overflow-hidden">
-        {/* Topbar de Gestión de Turnos */}
-        <header className="bg-white shadow-md p-4 flex justify-between items-center border-b">
+      <main className="flex-1 flex flex-col overflow-hidden print:overflow-visible">
+        <header className="bg-white shadow-md p-4 flex justify-between items-center border-b no-print">
           <div className="flex items-center space-x-4">
             <span className="text-sm font-bold text-gray-500">
               Paciente en curso:
@@ -320,8 +314,10 @@ export default function MedicaDashboard({ user, setUser }) {
                     : "bg-blue-100 text-blue-800"
                 }`}
               >
-                {pacienteEnCurso.nombreCompleto} (CC {pacienteEnCurso.documento}) —{" "}
-                {ESTADOS_INFO[pacienteEnCurso.estadoTurno]?.label}
+                {pacienteEnCurso.nombreCompleto} (CC {pacienteEnCurso.documento}
+                ) — {ESTADOS_INFO[pacienteEnCurso.estadoTurno]?.label} ·{" "}
+                {TIPOS_SERVICIO_LABEL[pacienteEnCurso.tipoServicio] ||
+                  pacienteEnCurso.tipoServicio}
               </span>
             ) : (
               <span className="bg-gray-100 text-gray-500 px-3 py-1 rounded-full text-sm font-semibold">
@@ -360,9 +356,8 @@ export default function MedicaDashboard({ user, setUser }) {
           </div>
         </header>
 
-        {/* Vista del Contenido Según Menú */}
-        <div className="flex-1 p-6 overflow-y-auto">
-          {seccionActiva === "consulta" && (
+        <div className="flex-1 p-6 overflow-y-auto print:p-0 print:overflow-visible">
+          <div className={seccionActiva === "consulta" ? "h-full" : "hidden"}>
             <div className="flex gap-4 h-full">
               <div className="flex-1 bg-white rounded-lg shadow border p-4 flex flex-col">
                 <h2 className="text-xl font-bold text-gray-700 mb-2">
@@ -397,7 +392,8 @@ export default function MedicaDashboard({ user, setUser }) {
                           {p.nombreCompleto}
                         </p>
                         <p className="text-[10px] text-gray-500">
-                          {TIPOS_SERVICIO_LABEL[p.tipoServicio] || p.tipoServicio}
+                          {TIPOS_SERVICIO_LABEL[p.tipoServicio] ||
+                            p.tipoServicio}
                         </p>
                       </div>
                       <span
@@ -418,7 +414,7 @@ export default function MedicaDashboard({ user, setUser }) {
                 </div>
               </div>
             </div>
-          )}
+          </div>
 
           {seccionActiva === "atendidos" && (
             <div className="bg-white p-6 rounded-lg shadow border">
@@ -469,37 +465,29 @@ export default function MedicaDashboard({ user, setUser }) {
           )}
 
           {seccionActiva === "certificados" && (
-            <div className="bg-white p-6 rounded-lg shadow border overflow-y-auto">
+            <div className="bg-white p-6 rounded-lg shadow border overflow-y-auto print:p-0 print:shadow-none print:border-none print:overflow-visible">
               <CertificadoMedico pacienteActivo={pacienteEnCurso} user={user} />
             </div>
           )}
 
           {seccionActiva === "huella" && (
-            <div className="bg-white p-6 rounded-lg shadow border overflow-y-auto">
+            <div className="bg-white p-6 rounded-lg shadow border overflow-y-auto print:p-0 print:shadow-none print:border-none print:overflow-visible">
               <CertificadoHuella pacienteActivo={pacienteEnCurso} user={user} />
             </div>
           )}
 
           {seccionActiva === "crecimiento" && (
-            <div className="bg-white p-6 rounded-lg shadow border">
-              <h2 className="text-lg font-bold mb-4">
-                Módulo de Crecimiento y Desarrollo
-              </h2>
-              <p className="text-sm text-gray-600">
-                Registro antropométrico y gráfico de percentiles...
-              </p>
-            </div>
+            <CrecimientoDesarrollo pacienteActivo={pacienteEnCurso} />
           )}
 
           {seccionActiva === "formulas" && (
-            <div className="bg-white p-6 rounded-lg shadow border overflow-y-auto">
+            <div className="bg-white p-6 rounded-lg shadow border overflow-y-auto print:p-0 print:shadow-none print:border-none print:overflow-visible">
               <FormulaMedica pacienteActivo={pacienteEnCurso} user={user} />
             </div>
           )}
         </div>
       </main>
 
-      {/* Modal de Diagnósticos */}
       {showDxModal && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl shadow-xl p-6 w-96">

@@ -76,7 +76,7 @@ export default function FormulaMedica({ pacienteActivo, user }) {
               <input
                 type="text"
                 value={nombre}
-                onChange={(e) => setNombre(e.target.value)}
+                onChange={(e) => setNombre(e.target.value.toUpperCase())}
                 placeholder="Nombre completo del paciente"
                 className="flex-1 bg-transparent border-b-2 border-gray-400 focus:border-sky-500 outline-none text-gray-800 font-medium px-2 py-1 print:border-none"
               />

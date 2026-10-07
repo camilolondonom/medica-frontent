@@ -46,9 +46,14 @@ export default function CertificadoMedico({ pacienteActivo, user }) {
     }
   }, [pacienteActivo]);
 
+  const CAMPOS_SIN_MAYUSCULA = ["fecha", "documento", "recomendaciones"];
+
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    const nuevoValor = CAMPOS_SIN_MAYUSCULA.includes(name)
+      ? value
+      : value.toUpperCase();
+    setFormData((prev) => ({ ...prev, [name]: nuevoValor }));
   };
 
   const handlePrint = () => {
@@ -63,7 +68,8 @@ export default function CertificadoMedico({ pacienteActivo, user }) {
             📜 Certificado Médico
           </h1>
           <p className="text-xs text-gray-500">
-            Diligencie el formato digital para impresión unificada en hoja Carta.
+            Diligencie el formato digital para impresión unificada en hoja
+            Carta.
           </p>
         </div>
         <button
@@ -76,7 +82,6 @@ export default function CertificadoMedico({ pacienteActivo, user }) {
 
       {/* DOCUMENTO IMPRIMIBLE */}
       <div className="relative bg-white p-8 rounded-lg shadow border border-gray-200 print:shadow-none print:border-none print:p-0 print:m-0 text-gray-800">
-
         {/* Marca de agua: logo del consultorio */}
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-10 z-0">
           <img
@@ -87,7 +92,6 @@ export default function CertificadoMedico({ pacienteActivo, user }) {
         </div>
 
         <div className="relative z-10">
-
           {/* ENCABEZADO MÉDICO */}
           <header className="text-center mb-3">
             <h2 className="text-lg font-bold text-[#1b75bb] uppercase tracking-wide">
@@ -159,7 +163,9 @@ export default function CertificadoMedico({ pacienteActivo, user }) {
             </h3>
             <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
               <div className="flex items-center gap-1">
-                <span className="font-semibold text-gray-700 min-w-[70px]">Patológicos:</span>
+                <span className="font-semibold text-gray-700 min-w-[70px]">
+                  Patológicos:
+                </span>
                 <input
                   type="text"
                   name="patologicos"
@@ -169,7 +175,9 @@ export default function CertificadoMedico({ pacienteActivo, user }) {
                 />
               </div>
               <div className="flex items-center gap-1">
-                <span className="font-semibold text-gray-700 min-w-[50px]">Lentes:</span>
+                <span className="font-semibold text-gray-700 min-w-[50px]">
+                  Lentes:
+                </span>
                 <input
                   type="text"
                   name="lentes"
@@ -179,7 +187,9 @@ export default function CertificadoMedico({ pacienteActivo, user }) {
                 />
               </div>
               <div className="flex items-center gap-1">
-                <span className="font-semibold text-gray-700 min-w-[70px]">Alérgicos:</span>
+                <span className="font-semibold text-gray-700 min-w-[70px]">
+                  Alérgicos:
+                </span>
                 <input
                   type="text"
                   name="alergicos"
@@ -189,7 +199,9 @@ export default function CertificadoMedico({ pacienteActivo, user }) {
                 />
               </div>
               <div className="flex items-center gap-1">
-                <span className="font-semibold text-gray-700 min-w-[50px]">Vacunas:</span>
+                <span className="font-semibold text-gray-700 min-w-[50px]">
+                  Vacunas:
+                </span>
                 <input
                   type="text"
                   name="vacunas"
@@ -199,7 +211,9 @@ export default function CertificadoMedico({ pacienteActivo, user }) {
                 />
               </div>
               <div className="flex items-center gap-1">
-                <span className="font-semibold text-gray-700 min-w-[70px]">Cirugías:</span>
+                <span className="font-semibold text-gray-700 min-w-[70px]">
+                  Cirugías:
+                </span>
                 <input
                   type="text"
                   name="cirugias"
@@ -209,7 +223,9 @@ export default function CertificadoMedico({ pacienteActivo, user }) {
                 />
               </div>
               <div className="flex items-center gap-1">
-                <span className="font-semibold text-gray-700 min-w-[50px]">Hábitos:</span>
+                <span className="font-semibold text-gray-700 min-w-[50px]">
+                  Hábitos:
+                </span>
                 <input
                   type="text"
                   name="habitos"
@@ -230,62 +246,160 @@ export default function CertificadoMedico({ pacienteActivo, user }) {
             <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs mb-2 bg-gray-50 p-1.5 rounded border border-gray-200 print:bg-transparent print:p-0 print:border-none">
               <div className="flex items-center gap-1">
                 <span className="font-semibold text-gray-700">Peso:</span>
-                <input type="text" name="peso" value={formData.peso} onChange={handleChange} className="w-12 border-b border-gray-300 text-center focus:outline-none print:border-none" />
+                <input
+                  type="text"
+                  name="peso"
+                  value={formData.peso}
+                  onChange={handleChange}
+                  className="w-12 border-b border-gray-300 text-center focus:outline-none print:border-none"
+                />
               </div>
               <div className="flex items-center gap-1">
                 <span className="font-semibold text-gray-700">Talla:</span>
-                <input type="text" name="talla" value={formData.talla} onChange={handleChange} className="w-12 border-b border-gray-300 text-center focus:outline-none print:border-none" />
+                <input
+                  type="text"
+                  name="talla"
+                  value={formData.talla}
+                  onChange={handleChange}
+                  className="w-12 border-b border-gray-300 text-center focus:outline-none print:border-none"
+                />
               </div>
               <div className="flex items-center gap-1">
                 <span className="font-semibold text-gray-700">PA:</span>
-                <input type="text" name="pa" value={formData.pa} onChange={handleChange} className="w-16 border-b border-gray-300 text-center focus:outline-none print:border-none" />
+                <input
+                  type="text"
+                  name="pa"
+                  value={formData.pa}
+                  onChange={handleChange}
+                  className="w-16 border-b border-gray-300 text-center focus:outline-none print:border-none"
+                />
               </div>
               <div className="flex items-center gap-1">
                 <span className="font-semibold text-gray-700">FR:</span>
-                <input type="text" name="fr" value={formData.fr} onChange={handleChange} className="w-10 border-b border-gray-300 text-center focus:outline-none print:border-none" />
+                <input
+                  type="text"
+                  name="fr"
+                  value={formData.fr}
+                  onChange={handleChange}
+                  className="w-10 border-b border-gray-300 text-center focus:outline-none print:border-none"
+                />
               </div>
               <div className="flex items-center gap-1">
                 <span className="font-semibold text-gray-700">FC:</span>
-                <input type="text" name="fc" value={formData.fc} onChange={handleChange} className="w-10 border-b border-gray-300 text-center focus:outline-none print:border-none" />
+                <input
+                  type="text"
+                  name="fc"
+                  value={formData.fc}
+                  onChange={handleChange}
+                  className="w-10 border-b border-gray-300 text-center focus:outline-none print:border-none"
+                />
               </div>
               <div className="flex items-center gap-1">
                 <span className="font-semibold text-gray-700">T:</span>
-                <input type="text" name="t" value={formData.t} onChange={handleChange} className="w-10 border-b border-gray-300 text-center focus:outline-none print:border-none" />
+                <input
+                  type="text"
+                  name="t"
+                  value={formData.t}
+                  onChange={handleChange}
+                  className="w-10 border-b border-gray-300 text-center focus:outline-none print:border-none"
+                />
               </div>
               <div className="flex items-center gap-1">
                 <span className="font-semibold text-gray-700">Sat:</span>
-                <input type="text" name="sat" value={formData.sat} onChange={handleChange} className="w-10 border-b border-gray-300 text-center focus:outline-none print:border-none" />
+                <input
+                  type="text"
+                  name="sat"
+                  value={formData.sat}
+                  onChange={handleChange}
+                  className="w-10 border-b border-gray-300 text-center focus:outline-none print:border-none"
+                />
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
               <div className="flex items-center gap-1">
-                <span className="font-semibold text-gray-700 min-w-[110px]">Cabeza y cuello:</span>
-                <input type="text" name="cabezaCuello" value={formData.cabezaCuello} onChange={handleChange} className="border-b border-gray-300 flex-1 focus:outline-none print:border-none" />
+                <span className="font-semibold text-gray-700 min-w-[110px]">
+                  Cabeza y cuello:
+                </span>
+                <input
+                  type="text"
+                  name="cabezaCuello"
+                  value={formData.cabezaCuello}
+                  onChange={handleChange}
+                  className="border-b border-gray-300 flex-1 focus:outline-none print:border-none"
+                />
               </div>
               <div className="flex items-center gap-1">
-                <span className="font-semibold text-gray-700 min-w-[110px]">Cardiopulmonar:</span>
-                <input type="text" name="cardiopulmonar" value={formData.cardiopulmonar} onChange={handleChange} className="border-b border-gray-300 flex-1 focus:outline-none print:border-none" />
+                <span className="font-semibold text-gray-700 min-w-[110px]">
+                  Cardiopulmonar:
+                </span>
+                <input
+                  type="text"
+                  name="cardiopulmonar"
+                  value={formData.cardiopulmonar}
+                  onChange={handleChange}
+                  className="border-b border-gray-300 flex-1 focus:outline-none print:border-none"
+                />
               </div>
               <div className="flex items-center gap-1">
-                <span className="font-semibold text-gray-700 min-w-[110px]">Abdomen:</span>
-                <input type="text" name="abdomen" value={formData.abdomen} onChange={handleChange} className="border-b border-gray-300 flex-1 focus:outline-none print:border-none" />
+                <span className="font-semibold text-gray-700 min-w-[110px]">
+                  Abdomen:
+                </span>
+                <input
+                  type="text"
+                  name="abdomen"
+                  value={formData.abdomen}
+                  onChange={handleChange}
+                  className="border-b border-gray-300 flex-1 focus:outline-none print:border-none"
+                />
               </div>
               <div className="flex items-center gap-1">
-                <span className="font-semibold text-gray-700 min-w-[110px]">GU:</span>
-                <input type="text" name="gu" value={formData.gu} onChange={handleChange} className="border-b border-gray-300 flex-1 focus:outline-none print:border-none" />
+                <span className="font-semibold text-gray-700 min-w-[110px]">
+                  GU:
+                </span>
+                <input
+                  type="text"
+                  name="gu"
+                  value={formData.gu}
+                  onChange={handleChange}
+                  className="border-b border-gray-300 flex-1 focus:outline-none print:border-none"
+                />
               </div>
               <div className="flex items-center gap-1">
-                <span className="font-semibold text-gray-700 min-w-[110px]">Musculoesquelético:</span>
-                <input type="text" name="musculoesqueletico" value={formData.musculoesqueletico} onChange={handleChange} className="border-b border-gray-300 flex-1 focus:outline-none print:border-none" />
+                <span className="font-semibold text-gray-700 min-w-[110px]">
+                  Musculoesquelético:
+                </span>
+                <input
+                  type="text"
+                  name="musculoesqueletico"
+                  value={formData.musculoesqueletico}
+                  onChange={handleChange}
+                  className="border-b border-gray-300 flex-1 focus:outline-none print:border-none"
+                />
               </div>
               <div className="flex items-center gap-1">
-                <span className="font-semibold text-gray-700 min-w-[110px]">Piel y uñas:</span>
-                <input type="text" name="pielUnas" value={formData.pielUnas} onChange={handleChange} className="border-b border-gray-300 flex-1 focus:outline-none print:border-none" />
+                <span className="font-semibold text-gray-700 min-w-[110px]">
+                  Piel y uñas:
+                </span>
+                <input
+                  type="text"
+                  name="pielUnas"
+                  value={formData.pielUnas}
+                  onChange={handleChange}
+                  className="border-b border-gray-300 flex-1 focus:outline-none print:border-none"
+                />
               </div>
               <div className="col-span-2 flex items-center gap-1">
-                <span className="font-semibold text-gray-700 min-w-[110px]">Neurológico:</span>
-                <input type="text" name="neurologico" value={formData.neurologico} onChange={handleChange} className="border-b border-gray-300 flex-1 focus:outline-none print:border-none" />
+                <span className="font-semibold text-gray-700 min-w-[110px]">
+                  Neurológico:
+                </span>
+                <input
+                  type="text"
+                  name="neurologico"
+                  value={formData.neurologico}
+                  onChange={handleChange}
+                  className="border-b border-gray-300 flex-1 focus:outline-none print:border-none"
+                />
               </div>
             </div>
           </section>
@@ -293,7 +407,9 @@ export default function CertificadoMedico({ pacienteActivo, user }) {
           {/* IMPRESIÓN DX & RECOMENDACIONES */}
           <section className="mb-4 text-xs space-y-2">
             <div className="flex items-center gap-2">
-              <span className="font-bold text-[#1b75bb] min-w-[100px]">Impresión DX:</span>
+              <span className="font-bold text-[#1b75bb] min-w-[100px]">
+                Impresión DX:
+              </span>
               <input
                 type="text"
                 name="impresionDx"
@@ -303,7 +419,9 @@ export default function CertificadoMedico({ pacienteActivo, user }) {
               />
             </div>
             <div>
-              <span className="font-bold text-[#1b75bb] block mb-1">Recomendaciones:</span>
+              <span className="font-bold text-[#1b75bb] block mb-1">
+                Recomendaciones:
+              </span>
               <textarea
                 name="recomendaciones"
                 rows={3}
@@ -327,7 +445,9 @@ export default function CertificadoMedico({ pacienteActivo, user }) {
 
             <div className="text-right">
               <div className="border-b border-gray-400 w-48 mb-1"></div>
-              <p className="font-bold text-gray-800">Dra. Carolina Londoño M.</p>
+              <p className="font-bold text-gray-800">
+                Dra. Carolina Londoño M.
+              </p>
               <p>RM: 52878-09</p>
               <p>Médica general - U.P.B.</p>
             </div>
